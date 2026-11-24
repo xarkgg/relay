@@ -82,6 +82,8 @@ try {
   staticApp.use(express.static('dist'));
   const staticServer = await new Promise(resolve => { const server = staticApp.listen(0,'127.0.0.1',() => resolve(server)); });
   try {
+    const previewBase = process.env.RELAY_PREVIEW_URL || `http://127.0.0.1:${staticServer.address().port}`;
+    if (process.env.RELAY_PREVIEW_URL) assert.equal(new URL(previewBase).protocol,'https:');
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     const requests = [];
@@ -89,7 +91,7 @@ try {
     page.on('pageerror',error => errors.push(error.message));
     for (const width of [390,1280]) {
       await page.setViewport({width,height:900});
-      await page.goto(`http://127.0.0.1:${staticServer.address().port}`,{waitUntil:'networkidle0'});
+      await page.goto(previewBase,{waitUntil:'networkidle0'});
       verify(await page.$eval('#workspace',node => node.hidden),'catalogue build does not expose local controls');
       await page.click('#preview-open');
       await page.waitForSelector('#preview-dialog[open]');
@@ -99,6 +101,10 @@ try {
       await page.screenshot({path:`probe-shots/catalogue-${width}.png`,fullPage:true});
     }
     verify(!requests.some(url => new URL(url).pathname.startsWith('/api/')),'public preview makes no workspace API requests');
+    for (const path of ['/api/workspace','/data/relay.db','/server/store.js','/.env']) {
+      const response = await fetch(previewBase + path);
+      verify(response.status === 404,`public preview refuses ${path}`);
+    }
     await context.close();
   } finally { await new Promise(resolve => staticServer.close(resolve)); }
   verify(errors.length === 0,`browser errors: ${errors.join(' | ') || 'none'}`);

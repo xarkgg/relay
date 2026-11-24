@@ -2,6 +2,8 @@
 
 Personal agents with useful workflows and clear limits.
 
+[Public preview](https://relay-xarkgg.vercel.app) · [Repository](https://github.com/xarkgg/relay)
+
 The first agent, Follow-up Desk, turns a Pi invoice register into a source-linked
 follow-up queue. You choose the inputs and tools, set an expiry and run limit,
 review the drafts, and export only approved work.
@@ -63,6 +65,8 @@ must be verified on a supported desktop. Docker is not available in Termux here.
 preview. `vercel.json` supplies the build and security headers. No documents,
 database, or runtime data are included. The local SQLite server is never deployed
 to Vercel. The future payment service will require durable hosted storage.
+The Vercel project follows `main`. Unknown routes return 404 rather than serving
+the catalogue as a workspace API response.
 
 ## Verification
 
@@ -77,3 +81,11 @@ The probe uses a real local HTTP server and SQLite database. Install Puppeteer
 on the verifier or set `RELAY_PUPPETEER_PATH` to an existing ESM module, and set
 `PUPPETEER_EXECUTABLE_PATH` to the Chromium binary if needed. Screenshots are
 written to ignored `probe-shots/`. No browser library is a production dependency.
+
+GitHub Actions runs the syntax checks, SQLite/HTTP tests, catalogue build, and
+real-browser probe on Node.js 24 for pushes to `main` and pull requests.
+To verify the deployed preview as well as the local workflow:
+
+```sh
+RELAY_PREVIEW_URL=https://relay-xarkgg.vercel.app npm run probe
+```
