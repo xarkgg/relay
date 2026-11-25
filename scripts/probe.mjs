@@ -135,7 +135,7 @@ try {
     }
     const response = await fetch(previewBase);
     const policy = response.headers.get('content-security-policy');
-    verify(policy?.includes("script-src 'self'") && policy.includes("'sha256-") && !policy.includes('unsafe-inline'), 'static frontend permits exact hydration hashes, not arbitrary inline scripts');
+    verify(policy?.includes("script-src 'self';") && !policy.includes('unsafe-inline') && !policy.includes('unsafe-eval'), 'static frontend permits self-hosted modules, not arbitrary inline scripts');
     verify(response.headers.get('x-content-type-options') === 'nosniff', 'static frontend prevents MIME sniffing');
   } finally { await new Promise(resolve => staticServer.close(resolve)); }
   verify(errors.length === 0,`browser errors: ${errors.join(' | ') || 'none'}`);

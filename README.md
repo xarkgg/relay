@@ -4,7 +4,7 @@ An agent marketplace frontend with a separate, local-first workflow backend.
 
 [Public preview](https://relay-xarkgg.vercel.app) · [Repository](https://github.com/xarkgg/relay)
 
-The Next.js/React marketplace lives in `frontend/`. It displays labelled sample
+The Vite/React/TypeScript/Tailwind marketplace lives in `frontend/`. It displays labelled sample
 agent listings with search, category/pricing filters, sorting, saved views, and
 agent details. Navigation, additional metadata filters, publishing, accounts,
 checkout, and agent launches are preview-only until backend integration is ready.
@@ -16,10 +16,14 @@ previous invoice-workspace UI has been replaced.
 
 ## Project layout
 
-- `frontend/app/` — Next.js pages, layout, and CSS.
-- `frontend/components/` — interactive marketplace UI.
-- `frontend/public/` — static assets, following Next.js conventions; this is not
-  the former root `public/` application.
+- `frontend/src/pages/` — the existing React pages.
+- `frontend/src/components/` — interactive marketplace UI.
+- `frontend/src/styles.css` — the original interface stylesheet, preserved unchanged.
+- `frontend/src/tailwind.css` — Tailwind theme/utilities, with Preflight disabled
+  to preserve existing element defaults and styling.
+- `frontend/index.html` — shared document metadata and the pre-rendered page mount.
+- `frontend/vite.config.ts` — Vite, React, Tailwind, and development page rendering.
+- `frontend/public/` — unchanged static assets and the legacy privacy redirect.
 - `server/` — Express, local SQLite storage, grants, and workflow logic.
 - `shared/` — invoice validation and frontend security-policy helpers.
 - `scripts/` and `tests/` — builds and verification.
@@ -50,7 +54,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Next.js (normally `http://localhost:3000`). This is the
+Open the URL printed by Vite (normally `http://localhost:3000`). This is the
 frontend development server with hot reload; it does not proxy the local backend.
 
 To build the frontend and serve the exported marketplace with the existing local
@@ -95,18 +99,21 @@ must be verified on a supported desktop; the marketplace preview does not verify
 
 ## Vercel
 
-`npm run build` statically exports Next.js into `frontend/out/` and generates a
+`npm run build` builds the Vite browser assets, pre-renders the same React pages
+into `frontend/out/`, and generates a
 Vercel Build Output API deployment in `.vercel/output/`. Keep the Vercel project
 root at the repository root; `vercel.json` sets the build command and export path.
-The generated deployment configuration includes exact CSP hashes for Next.js
-hydration, self-hosted assets only, and 404s for unknown routes. No documents,
+The generated deployment configuration includes strict CSP, self-hosted assets
+only, and the existing 404s for unknown routes. Browser code is loaded from
+external modules, so arbitrary inline scripts and eval remain blocked. No documents,
 database, or runtime data are included. The local SQLite server is never deployed
 to Vercel. The future payment service will require durable hosted storage.
 The Vercel project follows `main`. Unknown routes return 404 rather than serving
 the marketplace as a workspace API response. Generated build output is ignored
-by Git. Rebuilding updates CSP hashes automatically, without `unsafe-inline` or
-`unsafe-eval`. Analytics and remote-avatar requests from the supplied template
-are not included.
+by Git. The build-only renderer in `frontend/.ssr/` is neither deployed nor served
+by Express. Pre-rendering preserves the original initial HTML and the website's
+appearance when JavaScript is disabled. Native page links and in-memory state
+behavior are unchanged. Analytics and remote-avatar requests are not included.
 
 ## Pi integration handoff
 
@@ -126,11 +133,26 @@ npm run build
 npm run probe
 ```
 
-`npm run check` checks JavaScript syntax, generates Next.js route types, and runs
-the frontend TypeScript checker. Backend tests use real SQLite and HTTP fixtures.
+`npm run check` checks JavaScript syntax and runs the frontend TypeScript checker.
+Backend tests use real SQLite and HTTP fixtures.
 The browser probe tests the exported marketplace on both the local backend host
 and a static host, including mobile layouts, filtering, sorting, saved views,
 details, privacy links, CSP, and the absence of backend/third-party requests.
+
+The framework migration also freezes the original UI source, stylesheet, assets,
+and React/icon-library versions in `tests/fixtures/frontend-ui.json`. If a saved
+reference is available, run `npm run parity` to compare the pre-migration export
+with the current build. The comparison covers 93 screenshots and UI-state
+snapshots, including eight viewport widths, native dialogs and focus, filters,
+sorting, saved views, theme/navigation controls, browser history, document
+metadata, public route responses, and JavaScript-disabled rendering. Pixel
+comparison has zero tolerance; Chromium's first-capture compositor warm-up is
+applied equally to the reference and candidate.
+
+Reference exports and screenshots are local verifier artifacts, not production
+assets or committed data. `RELAY_UI_BASELINE` can point to a saved reference
+directory; otherwise the verifier reads the ignored
+`probe-shots/migration-baseline.json` produced during the migration.
 
 Install Puppeteer on the verifier or set `RELAY_PUPPETEER_PATH` to an existing ESM
 module, and set

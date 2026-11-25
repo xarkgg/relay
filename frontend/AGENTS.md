@@ -1,9 +1,16 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Frontend conventions
 
-## This is NOT the Next.js you know
+This frontend uses Vite, React, TypeScript, and Tailwind CSS. Dependencies and npm
+scripts are managed at the repository root.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+- Read the root `agents.md` before any Pi integration. The frontend owner selects
+  the Pi app; backend credentials must never be exposed through `VITE_*` variables.
+- Preserve existing UI markup, styles, native navigation, and in-memory behavior
+  unless the person explicitly requests an interface or behavior change.
+- Tailwind Preflight is deliberately disabled. The original stylesheet remains
+  unlayered so adding Tailwind does not reset existing elements or override it.
+- Pages are pre-rendered at build time and hydrated in the browser. Keep the same
+  public routes, metadata, and no-JavaScript output. Do not replace native links
+  with a client-side router without approval.
+- Run `npm run check`, `npm test`, `npm run build`, and `npm run probe`. When a
+  saved UI reference exists, `npm run parity` compares pixels and UI state.

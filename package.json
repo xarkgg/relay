@@ -7,12 +7,13 @@
   "scripts": {
     "prestart": "npm run build",
     "start": "node --env-file-if-exists=.env server/index.js",
-    "dev": "next dev frontend",
+    "dev": "vite --config frontend/vite.config.ts",
     "dev:server": "node --env-file-if-exists=.env --watch server/index.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
-    "probe": "node scripts/probe.mjs"
+    "probe": "node scripts/probe.mjs",
+    "parity": "node scripts/parity.mjs"
   },
   "dependencies": {
     "express": "^5.1.0"
@@ -21,10 +22,14 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "lucide-react": "^1.16.0",
-    "next": "16.4.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@tailwindcss/vite": "4.3.5",
+    "@vitejs/plugin-react": "6.3.0",
+    "lucide-react": "1.80.0",
+    "pngjs": "7.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.5",
+    "vite": "8.3.8",
     "typescript": "5.7.3"
   }
 }

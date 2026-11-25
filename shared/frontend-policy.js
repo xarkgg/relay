@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
-// Next's static export contains a small set of inline hydration scripts.
-// Authorize their exact contents instead of enabling arbitrary inline JavaScript.
+// Authorize any exact build-generated inline scripts rather than arbitrary code.
+// The Vite frontend uses external modules, so its generated hash list is empty.
 export function inlineScriptHashes(html) {
   return [...new Set([...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
     .filter(([, attributes, content]) => content && !/\ssrc\s*=/i.test(attributes))
@@ -37,6 +37,6 @@ export function deploymentConfig(scriptHashes = []) {
       { handle: 'filesystem' },
       { src: '/.*', status: 404, dest: '/404.html' }
     ],
-    cache: ['frontend/.next/cache/**']
+    cache: ['node_modules/.vite/**']
   };
 }

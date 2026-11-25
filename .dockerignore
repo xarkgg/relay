@@ -10,6 +10,7 @@ secrets
 node_modules
 data
 frontend/.next
+frontend/.ssr
 frontend/out
 dist
 tests

@@ -23,8 +23,8 @@ test('Vercel uses the static frontend export and generated deployment configurat
   assert.equal(output.routes[0].headers['X-Frame-Options'], undefined);
 });
 
-test('inline hydration scripts are authorized by their exact hashes only', () => {
-  const code = 'self.__next_f=[];';
+test('inline scripts are authorized by their exact hashes only', () => {
+  const code = 'window.relayReady=true;';
   const hash = `sha256-${createHash('sha256').update(code).digest('base64')}`;
   const html = `<script src="/external.js"></script><script>${code}</script><script>${code}</script>`;
   assert.deepEqual(inlineScriptHashes(html), [hash]);
@@ -35,15 +35,36 @@ test('inline hydration scripts are authorized by their exact hashes only', () =>
   assert.throws(() => frontendPolicy(["'unsafe-inline' ; connect-src *"]));
 });
 
-test('frontend is a static, type-checked Next project without analytics or remote avatars', async () => {
-  const config = await readFile(new URL('../frontend/next.config.mjs', import.meta.url), 'utf8');
-  assert.match(config, /output: 'export'/);
-  assert.doesNotMatch(config, /ignoreBuildErrors/);
-  const layout = await readFile(new URL('../frontend/app/layout.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(layout, /Analytics|@vercel\/analytics/);
-  const marketplace = await readFile(new URL('../frontend/components/marketplace.tsx', import.meta.url), 'utf8');
+test('frontend uses Vite, React, TypeScript, and Tailwind without a global reset', async () => {
+  const config = await readFile(new URL('../frontend/vite.config.ts', import.meta.url), 'utf8');
+  assert.match(config, /@vitejs\/plugin-react/);
+  assert.match(config, /@tailwindcss\/vite/);
+  assert.match(config, /outDir: 'out'/);
+  assert.match(config, /appType: 'custom'/);
+  const css = await readFile(new URL('../frontend/src/tailwind.css', import.meta.url), 'utf8');
+  assert.match(css, /tailwindcss\/utilities\.css/);
+  assert.doesNotMatch(css, /@import\s+['"]tailwindcss(?:\/preflight\.css)?['"]/);
+  const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /Analytics|@vercel\/analytics/);
+  const marketplace = await readFile(new URL('../frontend/src/components/marketplace.tsx', import.meta.url), 'utf8');
   assert.match(marketplace, /\/placeholder-user\.jpg/);
   assert.doesNotMatch(marketplace, /https?:\/\//);
+});
+
+test('migration preserves the original interface, behavior code, styles, assets and runtime versions', async () => {
+  const reference = JSON.parse(await readFile(new URL('./fixtures/frontend-ui.json', import.meta.url), 'utf8'));
+  const files = { marketplace:'src/components/marketplace.tsx', styles:'src/styles.css', privacy:'src/pages/privacy.tsx', notFound:'src/pages/not-found.tsx' };
+  for (const [name, path] of Object.entries(files)) {
+    const content = await readFile(new URL(`../frontend/${path}`, import.meta.url));
+    assert.equal(createHash('sha256').update(content).digest('hex'), reference.fingerprints[name], `${name} changed during the framework migration`);
+  }
+  for (const [name, digest] of Object.entries(reference.assets)) {
+    const content = await readFile(new URL(`../frontend/public/${name}`, import.meta.url));
+    assert.equal(createHash('sha256').update(content).digest('hex'), digest, `${name} changed`);
+  }
+  const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  for (const [name, version] of Object.entries(reference.versions)) assert.equal(lock.packages[`node_modules/${name}`].version, version);
+  assert.equal(lock.packages['node_modules/next'], undefined);
 });
 
 test('Docker builds the frontend before copying only the export into the runtime image', async () => {

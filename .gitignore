@@ -2,8 +2,8 @@
 node_modules/
 dist/
 frontend/.next/
+frontend/.ssr/
 frontend/out/
-frontend/next-env.d.ts
 probe-shots/
 .vercel/
 *.tsbuildinfo

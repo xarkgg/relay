@@ -1,12 +1,40 @@
 import { spawnSync } from 'node:child_process';
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, basename } from 'node:path';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { build } from 'vite';
 import { deploymentConfig, inlineScriptHashes } from '../shared/frontend-policy.js';
 
-const result = spawnSync(process.execPath, ['node_modules/next/dist/bin/next', 'build', 'frontend'], {
-  stdio: 'inherit', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' }
-});
-if (result.status !== 0) process.exit(result.status || 1);
+const types = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--project', 'frontend/tsconfig.json', '--noEmit'], { stdio: 'inherit' });
+if (types.status !== 0) process.exit(types.status || 1);
+
+const configFile = resolve('frontend/vite.config.ts');
+await build({ configFile });
+await build({ configFile, publicDir: false, build: {
+  ssr: resolve('frontend/src/entry-server.tsx'),
+  outDir: resolve('frontend/.ssr'),
+  emptyOutDir: true
+} });
+const { render } = await import(pathToFileURL(resolve('frontend/.ssr/entry-server.js')).href);
+const template = await readFile('frontend/out/index.html', 'utf8');
+if (!template.includes('<!--app-html-->') || !template.includes('<!--app-head-->')) {
+  throw new Error('The pre-render placeholders are missing from the frontend template.');
+}
+for (const [file, pathname] of Object.entries({
+  'index.html': '/',
+  'privacy/index.html': '/privacy/',
+  '404.html': '/404.html',
+  '404/index.html': '/404/',
+  '_not-found/index.html': '/_not-found/'
+})) {
+  const page = render(pathname);
+  const html = template.replace('<!--app-head-->', () => page.headHtml)
+    .replace('<!--app-html-->', () => page.appHtml);
+  const output = join('frontend/out', file);
+  await mkdir(resolve(output, '..'), { recursive: true });
+  await writeFile(output, html);
+}
 
 async function pageHashes(directory) {
   const hashes = [];
