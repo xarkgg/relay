@@ -105,6 +105,11 @@ try {
       const response = await fetch(previewBase + path);
       verify(response.status === 404,`public preview refuses ${path}`);
     }
+    if (process.env.RELAY_PREVIEW_URL) {
+      const response = await fetch(previewBase);
+      verify(response.headers.get('content-security-policy')?.includes("script-src 'self'"),'live preview enforces its content security policy');
+      verify(response.headers.get('x-content-type-options') === 'nosniff','live preview prevents MIME sniffing');
+    }
     await context.close();
   } finally { await new Promise(resolve => staticServer.close(resolve)); }
   verify(errors.length === 0,`browser errors: ${errors.join(' | ') || 'none'}`);

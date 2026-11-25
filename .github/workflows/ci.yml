@@ -23,5 +23,5 @@ jobs:
       - name: Install browser verifier
         run: npm install --no-save --package-lock=false --no-audit --no-fund puppeteer@25.16.0
       - name: Locate Chromium
-        run: echo "PUPPETEER_EXECUTABLE_PATH=$(node --input-type=module -e 'import puppeteer from "puppeteer"; console.log(puppeteer.executablePath())')" >> "$GITHUB_ENV"
+        run: echo "PUPPETEER_EXECUTABLE_PATH=$(node --input-type=module -e 'import puppeteer from "puppeteer"; console.log(await puppeteer.executablePath())')" >> "$GITHUB_ENV"
       - run: npm run probe

@@ -6,8 +6,12 @@ test('Vercel serves only generated files and refuses unknown workspace routes', 
   const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
   assert.equal(config.outputDirectory, 'dist');
   assert.equal(config.framework, null);
-  assert.deepEqual(config.routes, [{handle:'filesystem'}, {src:'/.*',status:404}]);
-  const csp = config.headers[0].headers.find(header => header.key === 'Content-Security-Policy').value;
+  assert.deepEqual(config.routes.slice(1), [{handle:'filesystem'}, {src:'/.*',status:404}]);
+  assert.equal(config.routes[0].src,'/.*');
+  assert.equal(config.routes[0].continue,true);
+  assert.equal(config.headers,undefined);
+  const csp = config.routes[0].headers['Content-Security-Policy'];
   assert.match(csp, /script-src 'self'/);
   assert.match(csp, /frame-ancestors 'none'/);
+  assert.equal(config.routes[0].headers['X-Content-Type-Options'],'nosniff');
 });
