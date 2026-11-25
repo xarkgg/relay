@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import express from 'express';
 import { createApp } from '../server/app.js';
 import { openStore } from '../server/store.js';
 
+await readFile('frontend/out/index.html');
+const deployment = JSON.parse(await readFile('.vercel/output/config.json', 'utf8'));
 let puppeteer;
 try { puppeteer = (await import(process.env.RELAY_PUPPETEER_PATH || 'puppeteer')).default; }
 catch {
@@ -13,7 +16,7 @@ catch {
   puppeteer = (await import(pathToFileURL(`${root}/puppeteer/lib/puppeteer/puppeteer.js`).href)).default;
 }
 const browser = await puppeteer.launch({headless:true, pipe:true, timeout:30_000, protocolTimeout:30_000,
-  executablePath:process.env.PUPPETEER_EXECUTABLE_PATH || 'chromium-browser',
+  executablePath:process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 await mkdir('probe-shots',{recursive:true});
 const store = openStore();
@@ -24,96 +27,118 @@ let checks = 0;
 function verify(value,message) { assert.ok(value,message); checks++; console.log(`ok ${checks} - ${message}`); }
 const errors = [];
 
-try {
+async function checkMarketplace(url, label) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
-  await page.setViewport({width:390,height:844});
+  const requests = [];
+  page.on('request', request => requests.push(request.url()));
   page.on('pageerror',error => errors.push(error.message));
   page.on('console',message => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.goto(base,{waitUntil:'networkidle0'});
-  verify(await page.$eval('#events',node => node.textContent.includes('No activity')),'opening the workspace does not run an agent');
-  await page.click('#preview-open');
-  await page.waitForSelector('#preview-dialog[open]');
-  verify(await page.$eval('#preview-results',node => node.textContent.includes('20.5 Pi')),'sample preview calculates exact Pi totals');
-  await page.click('#preview-dialog [data-close]');
-  await page.click('#import-sample');
-  await page.waitForSelector('.input-item');
-  verify(service.snapshot().imports.length === 1,'sample import reaches the real local database');
-  await page.click('#grant-open');
-  await page.waitForSelector('#grant-dialog[open]');
-  verify(await page.$eval('.permission-warning',node => node.textContent.includes('No payments')),'permission card discloses prohibited actions');
-  await page.click('#grant-form button[type=submit]');
-  await page.waitForFunction(() => document.querySelector('.grant .state')?.textContent === 'active');
-  await page.click('#run');
-  await page.waitForSelector('.draft');
-  verify(service.snapshot().runs[0].state === 'completed','real grant and run complete');
-  verify(service.snapshot().drafts.length === 2,'only due unpaid invoices receive drafts');
-  verify(await page.$eval('#drafts',node => node.textContent.includes('Template · no AI call')),'template provenance is explicit');
-  verify(await page.$eval('#model-choice',node => node.disabled),'missing local model is not faked');
-  verify(await page.$('#workspace [data-action=export]') === null,'unapproved drafts have no export action');
-  await page.click('[data-action=approve]');
-  await page.waitForSelector('[data-action=export]');
-  verify(service.snapshot().drafts.filter(draft => draft.state === 'approved').length === 1,'approval is persisted');
-  await page.click('[data-action=export]');
-  await page.waitForFunction(() => document.querySelector('#events').textContent.includes('Approved drafts exported'));
-  const exported = store.db.prepare('SELECT * FROM exports').get();
-  verify(exported.content.includes('INV-101') && !exported.content.includes('INV-102'),'export contains only the approved draft');
-  const runsBefore = service.snapshot().runs.length;
-  await page.reload({waitUntil:'networkidle0'});
-  verify(service.snapshot().runs.length === runsBefore,'reload does not replay a stored run');
-  await page.click('[data-action=revoke]');
-  await page.waitForFunction(() => document.querySelector('.grant .state')?.textContent === 'revoked');
-  verify(await page.$eval('#run',node => node.disabled),'revocation disables future runs');
-  verify(await page.$('[data-action=export]') === null,'revocation removes the export action');
-  for (const width of [320,390,1280]) {
-    await page.setViewport({width,height:width < 600 ? 844 : 1000});
-    await page.screenshot({path:`probe-shots/local-${width}.png`,fullPage:true});
-    verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),`local workspace has no horizontal overflow at ${width}px`);
-    await page.click('#grant-open');
-    await page.waitForSelector('#grant-dialog[open]');
-    verify(await page.$eval('#grant-dialog',node => node.scrollWidth <= node.clientWidth),`permission dialog fits at ${width}px`);
-    await page.click('#grant-dialog [data-close]');
-  }
-  await page.goto(base + '/privacy.html',{waitUntil:'networkidle0'});
-  verify(await page.$eval('main',node => node.textContent.includes('not encrypted')),'privacy page states the real local-storage limitation');
-  await context.close();
+  try {
+    await page.setViewport({width:1280,height:1000});
+    await page.goto(url,{waitUntil:'networkidle0'});
+    verify((await page.$$('.agent-card')).length === 12, `${label}: sample marketplace renders`);
+    verify(await page.$eval('.results-count strong', node => node.textContent === '12'), `${label}: count reflects the displayed listings`);
+    verify(await page.$eval('.preview-footer', node => node.textContent.includes('Sample listings')), `${label}: preview status is explicit`);
+
+    await page.type('input[aria-label="Search agents"]', 'Domain');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 1);
+    verify(await page.$eval('.agent-card h2', node => node.textContent === 'Domain Idea Generator'), `${label}: hydrated search works under CSP`);
+    await page.type('input[aria-label="Search agents"]', ' no-such-agent');
+    await page.waitForSelector('.empty-state');
+    verify(await page.$eval('.empty-state', node => node.textContent.includes('No agents found')), `${label}: empty results are handled`);
+    await page.click('.empty-state button');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 12);
+
+    await page.click('.filter-option input[aria-label="Marketing"]');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 4);
+    await page.click('.filter-option input[aria-label="Premium"]');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 2);
+    verify(await page.$$eval('.pricing-badge', nodes => nodes.every(node => node.textContent === 'Premium')), `${label}: category and pricing filters combine`);
+    await page.click('.clear-button');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 12);
+
+    for (const sort of ['Top rated', 'Most popular']) {
+      await page.select('select[aria-label="Sort agents"]', sort);
+      await page.waitForFunction(() => document.querySelector('.agent-card h2').textContent === 'Domain Idea Generator');
+      verify(await page.$eval('.agent-card h2', node => node.textContent === 'Domain Idea Generator'), `${label}: ${sort} sorting works`);
+    }
+    await page.select('select[aria-label="Sort agents"]', 'Relevance');
+    await page.waitForFunction(() => document.querySelector('.agent-card h2').textContent === 'Buyer Persona Builder');
+    await page.click('.save-button');
+    await page.waitForSelector('.save-button[aria-pressed="true"]');
+    await page.click('.more-chip');
+    await page.click('.more-menu button');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 1);
+    verify(await page.$eval('.agent-card h2', node => node.textContent === 'Buyer Persona Builder'), `${label}: saved view shows only saved agents`);
+    await page.click('.save-button');
+    await page.waitForSelector('.empty-state');
+    await page.click('.clear-saved');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 12);
+
+    await page.click('[aria-label="List view"]');
+    await page.waitForSelector('.agent-grid.list-view');
+    verify(await page.$eval('[aria-label="List view"]', node => node.getAttribute('aria-pressed') === 'true'), `${label}: list view is interactive`);
+    await page.click('[aria-label="Grid view"]');
+    await page.waitForSelector('.agent-grid:not(.list-view)');
+
+    for (const width of [320,390,900,1280,1600]) {
+      await page.setViewport({width,height:width < 600 ? 844 : 1000});
+      verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}: no horizontal overflow at ${width}px`);
+      await page.screenshot({path:`probe-shots/${label}-${width}.png`,fullPage:true});
+      await page.click('.go-button');
+      await page.waitForSelector('.agent-dialog[open]');
+      verify(await page.$eval('.agent-dialog', node => node.scrollWidth <= node.clientWidth), `${label}: details fit at ${width}px`);
+      verify(await page.$eval('.dialog-launch', node => node.disabled), `${label}: preview does not pretend to launch an agent`);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.agent-dialog', {hidden:true});
+    }
+
+    await page.setViewport({width:390,height:844});
+    await page.click('[aria-label="Show filters"]');
+    await page.waitForSelector('.filter-panel.filters-open');
+    await page.click('.filter-option input[aria-label="Marketing"]');
+    await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 4);
+    await page.click('[aria-label="Close filters"]');
+    verify(await page.$eval('.filter-panel', node => !node.classList.contains('filters-open')), `${label}: mobile filters open and close`);
+
+    await page.goto(url + '/privacy.html', {waitUntil:'networkidle0'});
+    verify(await page.$eval('main', node => node.textContent.includes('not encrypted')), `${label}: previous privacy URL still works`);
+    verify(!requests.some(value => new URL(value).pathname.startsWith('/api/')), `${label}: preview makes no backend API requests`);
+    // Embedded data: SVGs are assets, not third-party network requests.
+    const externalRequests = requests.filter(value => {
+      const request = new URL(value);
+      return ['http:', 'https:'].includes(request.protocol) && request.origin !== new URL(url).origin;
+    });
+    verify(externalRequests.length === 0, `${label}: no third-party requests or analytics`);
+  } finally { await context.close(); }
+}
+
+try {
+  await checkMarketplace(base, 'local');
+  verify(service.snapshot().runs.length === 0 && service.snapshot().imports.length === 0, 'browsing the marketplace does not run backend work');
 
   const staticApp = express();
-  staticApp.use(express.static('dist'));
+  const staticRoot = resolve('.vercel/output/static');
+  staticApp.use((_req, res, next) => { res.set(deployment.routes[0].headers); next(); });
+  staticApp.use(express.static(staticRoot));
+  staticApp.use((_req, res) => res.status(404).sendFile('404.html', { root: staticRoot }));
   const staticServer = await new Promise(resolve => { const server = staticApp.listen(0,'127.0.0.1',() => resolve(server)); });
   try {
     const previewBase = process.env.RELAY_PREVIEW_URL || `http://127.0.0.1:${staticServer.address().port}`;
     if (process.env.RELAY_PREVIEW_URL) assert.equal(new URL(previewBase).protocol,'https:');
-    const context = await browser.createBrowserContext();
-    const page = await context.newPage();
-    const requests = [];
-    page.on('request',request => requests.push(request.url()));
-    page.on('pageerror',error => errors.push(error.message));
-    for (const width of [390,1280]) {
-      await page.setViewport({width,height:900});
-      await page.goto(previewBase,{waitUntil:'networkidle0'});
-      verify(await page.$eval('#workspace',node => node.hidden),'catalogue build does not expose local controls');
-      await page.click('#preview-open');
-      await page.waitForSelector('#preview-dialog[open]');
-      verify(await page.$eval('#preview-results',node => node.textContent.includes('20.5 Pi')),'catalogue sample preview works without a server runtime');
-      await page.click('#preview-dialog [data-close]');
-      verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),`catalogue has no overflow at ${width}px`);
-      await page.screenshot({path:`probe-shots/catalogue-${width}.png`,fullPage:true});
-    }
-    verify(!requests.some(url => new URL(url).pathname.startsWith('/api/')),'public preview makes no workspace API requests');
-    for (const path of ['/api/workspace','/data/relay.db','/server/store.js','/.env']) {
+    await checkMarketplace(previewBase, 'catalogue');
+    for (const path of ['/api/workspace','/data/relay.db','/server/store.js','/frontend/app/page.tsx','/.env','/.relay-csp.json']) {
       const response = await fetch(previewBase + path);
-      verify(response.status === 404,`public preview refuses ${path}`);
+      verify(response.status === 404, `public preview refuses ${path}`);
+      verify((await response.text()).includes('Page not found'), `public preview returns its actual 404 page for ${path}`);
     }
-    if (process.env.RELAY_PREVIEW_URL) {
-      const response = await fetch(previewBase);
-      verify(response.headers.get('content-security-policy')?.includes("script-src 'self'"),'live preview enforces its content security policy');
-      verify(response.headers.get('x-content-type-options') === 'nosniff','live preview prevents MIME sniffing');
-    }
-    await context.close();
+    const response = await fetch(previewBase);
+    const policy = response.headers.get('content-security-policy');
+    verify(policy?.includes("script-src 'self'") && policy.includes("'sha256-") && !policy.includes('unsafe-inline'), 'static frontend permits exact hydration hashes, not arbitrary inline scripts');
+    verify(response.headers.get('x-content-type-options') === 'nosniff', 'static frontend prevents MIME sniffing');
   } finally { await new Promise(resolve => staticServer.close(resolve)); }
   verify(errors.length === 0,`browser errors: ${errors.join(' | ') || 'none'}`);
-  verify((await readFile('dist/index.html','utf8')).includes('data-mode="catalogue"'),'Vercel output is explicitly catalogue-only');
   console.log(`PASS: ${checks} real-browser checks.`);
 } finally {
   await browser.close();

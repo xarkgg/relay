@@ -5,12 +5,26 @@
   "type": "module",
   "engines": { "node": ">=24" },
   "scripts": {
+    "prestart": "npm run build",
     "start": "node --env-file-if-exists=.env server/index.js",
-    "dev": "node --env-file-if-exists=.env --watch server/index.js",
+    "dev": "next dev frontend",
+    "dev:server": "node --env-file-if-exists=.env --watch server/index.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
     "probe": "node scripts/probe.mjs"
   },
-  "dependencies": { "express": "^5.1.0" }
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "lucide-react": "^1.16.0",
+    "next": "16.4.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "5.7.3"
+  }
 }

@@ -1,7 +1,16 @@
 .git
 .env*
+**/.env*
+.secrets
+secrets
+**/validation-key.txt
+.vercel
+.DS_Store
+*.tsbuildinfo
 node_modules
 data
+frontend/.next
+frontend/out
 dist
 tests
 probe-shots

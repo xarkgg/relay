@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.js';
 import { openStore } from '../server/store.js';
 import { sampleCsv } from '../shared/invoices.js';
 
 async function fixture(t) {
   const store = openStore();
-  const { app, service } = createApp({store});
+  const frontendDir = fileURLToPath(new URL('./fixtures/frontend/', import.meta.url));
+  const { app, service } = createApp({store, frontendDir});
   const server = await new Promise(resolve => { const server = app.listen(0,'127.0.0.1', () => resolve(server)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   t.after(async () => { service.stop(); await new Promise(resolve => server.close(resolve)); store.close(); });
@@ -28,7 +30,9 @@ test('local page and bootstrap have security headers and a private session', asy
   const { request, cookie } = await fixture(t);
   const page = await request('/');
   assert.equal(page.status,200);
+  assert.match(page.body, /Relay test frontend/);
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
+  assert.doesNotMatch(page.headers.get('content-security-policy'), /unsafe-inline|unsafe-eval/);
   assert.match(cookie,/relay_local=/);
   const bootstrap = await request('/api/bootstrap');
   assert.equal(bootstrap.body.mode,'local');
@@ -93,4 +97,5 @@ test('database content cannot be fetched as a public file', async t => {
   const { request } = await fixture(t);
   assert.equal((await request('/data/relay.db')).status,404);
   assert.equal((await request('/server/store.js')).status,404);
+  assert.equal((await request('/frontend/app/page.tsx')).status,404);
 });

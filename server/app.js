@@ -4,12 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { createService } from './service.js';
 import { createModel } from './model.js';
 import { RelayError, demand } from './errors.js';
+import { localFrontendPolicy } from './frontend-policy.js';
 
-const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+const defaultFrontendDir = fileURLToPath(new URL('../frontend/out/', import.meta.url));
 const sharedDir = fileURLToPath(new URL('../shared/', import.meta.url));
 const digest = value => createHash('sha256').update(value).digest('hex');
 
-export function createApp({ store, model = createModel(), embedOrigins = [] }) {
+export function createApp({ store, model = createModel(), embedOrigins = [], frontendDir = defaultFrontendDir }) {
   const service = createService(store, model);
   const sessions = new Map();
   const app = express();
@@ -20,9 +21,10 @@ export function createApp({ store, model = createModel(), embedOrigins = [] }) {
       'BAD_EMBED_ORIGIN', 'Embedding requires exact trusted HTTP origins.');
     return origin.origin;
   });
+  const policy = localFrontendPolicy(frontendDir, parents);
   app.use((req, res, next) => {
     res.set({
-      'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' ${parents.join(' ')}`,
+      'Content-Security-Policy': policy,
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
       'Cache-Control': 'no-store',
@@ -94,7 +96,7 @@ export function createApp({ store, model = createModel(), embedOrigins = [] }) {
   });
   app.use('/api', (_req, _res, next) => next(new RelayError('NOT_FOUND', 'This endpoint was not found.', 404)));
   app.use('/shared', express.static(sharedDir));
-  app.use(express.static(publicDir));
+  app.use(express.static(frontendDir, { extensions: ['html'] }));
   app.use((_req, _res, next) => next(new RelayError('NOT_FOUND', 'This page was not found.', 404)));
   app.use((error, _req, res, _next) => {
     if (error instanceof RelayError) return res.status(error.status).json({ code: error.code, error: error.message });
