@@ -1,12 +1,24 @@
+# Dependencies and generated output
 node_modules/
+dist/
+probe-shots/
+
+# Local configuration and secrets. Commit redacted examples only.
 .env
 .env.*
 !.env.example
+!.env.*.example
+/.secrets/
+/secrets/
+validation-key.txt
+
+# Local runtime data and diagnostics
 data/
-dist/
-probe-shots/
 *.db
 *.db-shm
 *.db-wal
 core
 *.log
+
+# Shared Pi app metadata contains an app ID, not credentials.
+!.pi-onboard.json
