@@ -27,12 +27,19 @@
         <div class="card-top"><div class="agent-icon" aria-hidden="true">FD</div><span class="badge">First-party agent</span></div>
         <p class="eyebrow">01 / Paperwork</p><h2>Follow-up Desk</h2><p>Turn an invoice register into a short queue of people to follow up with. Draft, review, then export.</p>
         <div class="agent-facts"><span>Imported CSV only</span><span>No message sending</span><span>Local storage</span></div>
-        <div class="card-footer"><span>Development build</span><span>Pi checkout not enabled</span></div>
+        <div class="card-footer"><span>Development build</span><span id="checkout-status">Pi checkout not configured</span></div>
       </article>
     </section>
     <section class="principles" aria-label="How Relay works"><div><span>01</span><h3>Choose the inputs</h3><p>Explicit imports. No access to the rest of your computer.</p></div><div><span>02</span><h3>Set the limits</h3><p>Pick tools, run limits, and an expiry. Revoke at any time.</p></div><div><span>03</span><h3>Review the work</h3><p>Approve unchanged drafts before anything is exported.</p></div></section>
     <div id="catalogue-note" class="notice" hidden>This is the public preview. The working agent runs in Relay's local workspace. Desktop packaging and Pi purchases are not available yet.</div>
     <div id="error" role="alert" class="error" hidden></div>
+    <section id="commerce" class="panel commerce" hidden>
+      <div class="section-heading"><div><p class="eyebrow">Your Pi account</p><h2>Test the purchase flow.</h2></div><span class="badge">Activation pending</span></div>
+      <p id="commerce-user" class="muted"></p>
+      <p class="muted">Checkout is Testnet-only. This records a 30-day test access period, not an activated desktop installation. No Mainnet purchase is available.</p>
+      <div class="hero-actions"><button id="pi-signin" class="primary">Sign in with Pi</button><button id="pi-signout" class="secondary" hidden>Sign out</button><button id="pi-buy" class="primary" hidden>Testnet checkout</button></div>
+      <div id="commerce-message" class="muted" role="status" hidden></div><div id="entitlements"></div><div id="pending-payments"></div>
+    </section>
     <section id="workspace" data-local class="workspace">
       <div class="section-heading"><div><p class="eyebrow">Your workspace</p><h2>One job, within bounds.</h2></div><button id="refresh" class="secondary">Refresh</button></div>
       <div class="workspace-grid">
@@ -57,7 +64,7 @@
     </section>
     <section id="activity" data-local class="activity"><div class="section-heading"><div><p class="eyebrow">On this device</p><h2>A record of what happened.</h2></div><span class="badge">Local activity</span></div><ol id="events"></ol></section>
   </main>
-  <footer><span class="brand-text">relay.</span><p>Your imported documents and drafts stay in the local workspace. This build doesn't connect to email, wallets, or cloud models.</p><a href="/privacy.html">Privacy & limits</a></footer>
+  <footer><span class="brand-text">relay.</span><p>Documents and drafts stay local. Pi account and purchase data use the hosted service when enabled. No email sending or cloud models.</p><a href="/privacy.html">Privacy & limits</a></footer>
   <dialog id="preview-dialog"><div class="dialog-heading"><div><p class="eyebrow">Sample data / deterministic preview</p><h2>A smaller follow-up queue.</h2></div><button class="close" data-close aria-label="Close preview">×</button></div><p class="muted">This preview calculates a labelled sample register in your browser. It does not run an AI model, create a grant, or upload a file.</p><div id="preview-results"></div><button class="secondary" data-close>Back to Relay</button></dialog>
   <dialog id="grant-dialog"><form id="grant-form"><div class="dialog-heading"><div><p class="eyebrow">Permission / Follow-up Desk v1</p><h2>Give it a boundary.</h2></div><button class="close" type="button" data-close aria-label="Close permissions">×</button></div><fieldset><legend>Allowed inputs</legend><div id="grant-inputs"></div></fieldset><fieldset><legend>Allowed tools</legend><label class="check"><input type="checkbox" checked disabled> Read the selected invoice registers</label><label class="check"><input type="checkbox" name="tool" value="draft_reminders" checked> Generate reminder drafts</label><label class="check"><input type="checkbox" name="tool" value="export_drafts" checked> Export approved drafts</label></fieldset><div class="limits"><label>Expires in<select name="days"><option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option></select></label><label>Maximum runs<input name="maxRuns" type="number" min="1" max="50" value="10" required></label><label>Drafts per run<input name="maxDrafts" type="number" min="1" max="5" value="3" required></label></div><p class="permission-warning">No other files. No email sending. No payments. Changed inputs need a new grant.</p><div id="grant-error" class="error" role="alert" hidden></div><button type="submit" class="primary">Allow this scope</button></form></dialog>
 </body>

@@ -47,6 +47,9 @@ h3 { font-size:18px; letter-spacing:-.3px; }
 .notice,.error { padding:16px; border-radius:8px; margin:20px 0; }
 .notice { background:#e4e9df; }
 .error { background:#fce9e2; color:#8b2718; overflow-wrap:anywhere; }
+.commerce { margin:32px 0; }
+.commerce #commerce-message { margin-top:20px; }
+.commerce #commerce-user { overflow-wrap:anywhere; }
 .workspace,.activity { padding:48px 0; }
 .section-heading { margin-bottom:24px; }
 .section-heading h2 { margin-bottom:0; }

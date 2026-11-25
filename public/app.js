@@ -67,6 +67,10 @@ if (!local) {
   document.querySelectorAll('[data-local]').forEach(node => { node.hidden = true; });
   $('#catalogue-note').hidden = false;
   $('#location').textContent = 'Public preview';
+  await action(async()=>{
+    const {mountCommerce}=await import('/commerce.js');
+    await mountCommerce();
+  });
 } else {
   await action(async () => {
     const initial = await api('/bootstrap');

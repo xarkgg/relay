@@ -3,14 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "dev": "node --env-file-if-exists=.env --watch server/index.js",
+    "storefront": "node --env-file-if-exists=.env server/storefront.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
-    "probe": "node scripts/probe.mjs"
+    "probe": "node scripts/probe.mjs",
+    "probe:commerce": "node scripts/probe-commerce.mjs"
   },
-  "dependencies": { "express": "^5.1.0" }
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15"
+  }
 }

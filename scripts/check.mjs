@@ -12,5 +12,5 @@ async function check(dir) {
     }
   }
 }
-for (const dir of ['server', 'shared', 'public', 'scripts', 'tests']) await check(dir);
+for (const dir of ['api', 'server', 'shared', 'public', 'scripts', 'tests']) await check(dir);
 console.log(`Syntax checked: ${count} files.`);
