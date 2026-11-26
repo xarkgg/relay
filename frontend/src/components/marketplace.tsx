@@ -4,17 +4,13 @@ import {
   Bot,
   BriefcaseBusiness,
   ChevronDown,
-  ChevronLeft,
   ChevronUp,
-  Command,
   Compass,
   Dna,
-  Flame,
+  Funnel,
   Globe2,
-  Grid2X2,
   Heart,
-  List,
-  Menu,
+  LayoutGrid,
   MessageCircleQuestionMark,
   Moon,
   ReceiptText,
@@ -24,12 +20,16 @@ import {
   Sparkles,
   Star,
   Sun,
+  TextAlignStart,
   Users,
   X,
 } from 'lucide-react'
 import { toggleTheme, useTheme } from '../theme'
+import AgentSearch from './agent-search'
 import Notifications from './notifications'
 import ProfileMenu from './profile-menu'
+import SortMenu, { type AgentSort } from './sort-menu'
+import { usePopover } from './use-popover'
 
 type Agent = {
   title: string
@@ -470,12 +470,11 @@ const reviewCount = (value: string) =>
 export default function Marketplace() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const [sort, setSort] = useState('Relevance')
+  const [sort, setSort] = useState<AgentSort>('Relevance')
   const [saved, setSaved] = useState<string[]>([])
   const [listView, setListView] = useState(false)
-  const [mobileFilters, setMobileFilters] = useState(false)
-  const [activeChip, setActiveChip] = useState('')
-  const [extraOpen, setExtraOpen] = useState(false)
+  const filters = usePopover({ dismissOnScroll: false })
+  const [showSaved, setShowSaved] = useState(false)
   const [openedAgent, setOpenedAgent] = useState<Agent | null>(null)
   const toggle = (value: string) =>
     setSelected((current) =>
@@ -484,8 +483,8 @@ export default function Marketplace() {
         : [...current, value],
     )
   const visibleAgents = useMemo(() => {
+    const term = query.trim().toLowerCase()
     const filtered = agents.filter((agent) => {
-      const term = query.trim().toLowerCase()
       const matchesQuery =
         !term ||
         `${agent.title} ${agent.description} ${agent.category} ${agent.author}`
@@ -499,8 +498,7 @@ export default function Marketplace() {
         !selected.some((value) =>
           ['Free', 'Paid', 'Premium'].includes(value),
         ) || selected.includes(agent.pricing)
-      const savedFilter =
-        activeChip !== 'Saved agents' || saved.includes(agent.title)
+      const savedFilter = !showSaved || saved.includes(agent.title)
       return matchesQuery && matchesCategory && matchesPricing && savedFilter
     })
     if (sort === 'Top rated')
@@ -510,41 +508,17 @@ export default function Marketplace() {
         (a, b) => reviewCount(b.reviews) - reviewCount(a.reviews),
       )
     return filtered
-  }, [query, selected, sort, activeChip, saved])
+  }, [query, selected, sort, showSaved, saved])
   const toggleSave = (title: string) =>
     setSaved((current) =>
       current.includes(title)
         ? current.filter((item) => item !== title)
         : [...current, title],
     )
-  const chips = [
-    { label: 'Hot Right Now', icon: Flame },
-    { label: 'New & Noteworthy', icon: Star },
-    { label: 'Included with Pro', icon: Sparkles },
-    { label: 'Sales & Marketing Agents', icon: Activity },
-    { label: 'Agents for Sales Prospecting', icon: Users },
-  ]
-  const toggleChip = (chip: string) => {
-    const key = chip.includes('Sales & Marketing')
-      ? 'Marketing'
-      : chip.includes('Prospecting')
-        ? 'Sales'
-        : chip.includes('Pro')
-          ? 'Premium'
-          : chip.includes('Saved')
-            ? 'Saved agents'
-            : chip.includes('Hot')
-              ? 'Most popular'
-              : 'New & Noteworthy'
-    setActiveChip(activeChip === key ? '' : key)
-    if (key === 'Marketing' || key === 'Sales' || key === 'Premium') toggle(key)
-    if (key === 'Most popular')
-      setSort(sort === 'Most popular' ? 'Relevance' : 'Most popular')
-  }
   const clearAll = () => {
-    setSelected([])
     setQuery('')
-    setActiveChip('')
+    setSelected([])
+    setShowSaved(false)
     setSort('Relevance')
   }
 
@@ -552,17 +526,66 @@ export default function Marketplace() {
     <div className="app-shell" id="top">
       <Header />
       <main className="workspace">
-        <aside
-          className={`filter-panel ${mobileFilters ? 'filters-open' : ''}`}
+        <div className="search-row">
+          <AgentSearch
+            query={query}
+            onQueryChange={setQuery}
+            suggestions={visibleAgents}
+          />
+          <button
+            ref={filters.trigger}
+            type="button"
+            className="icon-button filter-toggle"
+            aria-label="Show filters"
+            aria-haspopup="dialog"
+            aria-controls={filters.id}
+            aria-expanded={filters.open}
+            onClick={filters.toggle}
+          >
+            <Funnel size={20} aria-hidden="true" />
+          </button>
+        </div>
+        <section
+          ref={filters.panel}
+          id={filters.id}
+          className="popover filters-popover"
+          role="dialog"
+          aria-labelledby={`${filters.id}-title`}
+          tabIndex={-1}
+          hidden={filters.style === null}
+          style={filters.style ?? undefined}
         >
           <div className="filter-top">
-            <h1>Filters</h1>
+            <h2 id={`${filters.id}-title`}>Filters</h2>
             <button
+              type="button"
               className="collapse-button"
               aria-label="Close filters"
-              onClick={() => setMobileFilters(false)}
+              onClick={filters.close}
             >
-              <ChevronLeft size={18} />
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="filter-actions">
+            <button
+              type="button"
+              aria-pressed={showSaved}
+              onClick={() => {
+                setShowSaved(!showSaved)
+                filters.close()
+              }}
+            >
+              <Heart size={15} aria-hidden="true" /> Saved agents
+            </button>
+            <button
+              type="button"
+              aria-pressed={sort === 'Top rated'}
+              onClick={() => {
+                setSort('Top rated')
+                filters.close()
+              }}
+            >
+              <Star size={15} aria-hidden="true" /> Top rated
             </button>
           </div>
           <CheckGroup
@@ -658,109 +681,31 @@ export default function Marketplace() {
           <button className="clear-button" onClick={clearAll}>
             Clear All Filters
           </button>
-        </aside>
+        </section>
         <section className="content-area">
-          <div className="search-row">
-            <label className="search-box">
-              <Search size={22} />
-              <input
-                aria-label="Search agents"
-                placeholder="Search agents, use cases, categories"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <span className="shortcut">
-                <Command size={13} /> K
-              </span>
-            </label>
-            <button
-              className="icon-button filter-toggle"
-              aria-label="Show filters"
-              onClick={() => setMobileFilters(!mobileFilters)}
-            >
-              <SlidersHorizontal size={20} />
-            </button>
-          </div>
-          <div className="chips-row">
-            <div
-              className="quick-filters"
-              role="group"
-              aria-label="Quick agent filters"
-            >
-              {chips.map(({ label, icon: ChipIcon }) => (
-                <button
-                  key={label}
-                  onClick={() => toggleChip(label)}
-                  className={`chip ${activeChip && ((label.includes('Sales & Marketing') && activeChip === 'Marketing') || (label.includes('Prospecting') && activeChip === 'Sales') || (label.includes('Pro') && activeChip === 'Premium') || (label.includes('Hot') && activeChip === 'Most popular')) ? 'selected' : ''}`}
-                >
-                  <ChipIcon size={15} strokeWidth={1.8} />
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="more-wrap">
-              <button
-                className={`chip more-chip ${extraOpen ? 'selected' : ''}`}
-                onClick={() => setExtraOpen(!extraOpen)}
-              >
-                More <ChevronDown size={17} />
-              </button>
-              {extraOpen && (
-                <div className="more-menu">
-                  <button
-                    onClick={() => {
-                      setActiveChip('Saved agents')
-                      setExtraOpen(false)
-                    }}
-                  >
-                    <Heart size={15} /> Saved agents
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSort('Top rated')
-                      setExtraOpen(false)
-                    }}
-                  >
-                    <Star size={15} /> Top rated
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
           <section className="results-panel">
             <div className="results-toolbar">
               <div className="results-count">
                 <strong>{visibleAgents.length}</strong>
                 <span>Agents</span>
-                {activeChip === 'Saved agents' && (
+                {showSaved && (
                   <button
                     className="clear-saved"
-                    onClick={() => setActiveChip('')}
+                    onClick={() => setShowSaved(false)}
                   >
                     Clear saved view <X size={13} />
                   </button>
                 )}
               </div>
               <div className="result-controls">
-                <label className="sort-label">
-                  Sort by:{' '}
-                  <select
-                    aria-label="Sort agents"
-                    value={sort}
-                    onChange={(event) => setSort(event.target.value)}
-                  >
-                    <option>Relevance</option>
-                    <option>Top rated</option>
-                    <option>Most popular</option>
-                  </select>
-                </label>
+                <SortMenu value={sort} onChange={setSort} />
                 <button
                   className={`view-button ${!listView ? 'view-active' : ''}`}
                   aria-label="Grid view"
                   aria-pressed={!listView}
                   onClick={() => setListView(false)}
                 >
-                  <Grid2X2 size={21} />
+                  <LayoutGrid size={21} aria-hidden="true" />
                 </button>
                 <button
                   className={`view-button ${listView ? 'view-active' : ''}`}
@@ -768,7 +713,7 @@ export default function Marketplace() {
                   aria-pressed={listView}
                   onClick={() => setListView(true)}
                 >
-                  <List size={21} />
+                  <TextAlignStart size={21} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -808,13 +753,6 @@ export default function Marketplace() {
           onClose={() => setOpenedAgent(null)}
         />
       )}
-      <button
-        className="mobile-menu"
-        aria-label="Open filters"
-        onClick={() => setMobileFilters(!mobileFilters)}
-      >
-        <Menu size={21} />
-      </button>
     </div>
   )
 }

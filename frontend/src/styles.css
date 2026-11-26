@@ -51,19 +51,19 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   :root.theme-changing,
   :root.theme-changing :where(
-    body, .topbar, .nav-item, .header-actions > *, .header-popover, .profile-menu a,
+    body, .topbar, .nav-item, .header-actions > *, .popover, .profile-menu a,
     .notification-panel-heading, .notification-read, .notification-item,
-    .filter-panel, .filter-top, .filter-section, .filter-count, .filter-option,
-    .filter-option input, .filter-heading svg, .clear-button, .search-box,
-    .search-box input, .shortcut, .filter-toggle, .chip, .more-menu, .more-menu button,
+    .filter-top, .filter-actions, .filter-actions button, .filter-section, .filter-count, .filter-option,
+    .filter-option input, .filter-heading svg, .clear-button, .search-surface,
+    .search-field input, .search-suggestion-list button, .shortcut, .filter-toggle,
     .results-panel, .results-count, .results-count strong, .clear-saved, .sort-label,
-    .sort-label select, .view-button, .agent-card, .pricing-badge, .agent-emblem,
+    .sort-value, .sort-menu button, .view-button, .agent-card, .pricing-badge, .agent-emblem,
     .agent-description, .rating, .go-button, .go-button svg, .save-button,
     .empty-state, .empty-state strong, .empty-state button, .agent-dialog,
     .dialog-close, .dialog-icon, .dialog-kicker, .agent-dialog p, .dialog-meta,
     .dialog-launch, .preview-footer, .privacy-page, .privacy-page p, .privacy-page a
   ),
-  :root.theme-changing .search-box input::placeholder,
+  :root.theme-changing .search-field input::placeholder,
   :root.theme-changing .card-banner::after {
     transition-property: background-color, color, border-color, box-shadow, outline-color;
     transition-duration: 280ms;
@@ -234,7 +234,20 @@ button {
 .notification[aria-expanded='true'] .notification-badge {
   opacity: 0;
 }
-.header-popover {
+body.has-popover::before,
+dialog::backdrop {
+  background: #0002;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+body.has-popover::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+.popover {
   position: fixed;
   z-index: 10;
   width: var(--popover-width);
@@ -377,18 +390,14 @@ button {
   background: var(--muted);
 }
 .workspace {
-  display: grid;
-  grid-template-columns: 276px minmax(0, 1fr);
-  gap: 26px;
-  padding: 26px 26px 36px 36px;
+  padding: 26px 26px 36px;
   min-height: calc(100vh - var(--header-height));
 }
-.filter-panel {
-  background: var(--card);
-  border-radius: 28px;
-  padding: 20px 26px 25px;
-  align-self: stretch;
-  min-height: 840px;
+.filters-popover {
+  --popover-width: min(22rem, calc(100% - 24px));
+  padding: 16px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .filter-top {
   display: flex;
@@ -398,10 +407,35 @@ button {
   border-bottom: 1px solid var(--border);
   margin-bottom: 5px;
 }
-.filter-top h1 {
+.filter-top h2 {
   font-size: 20px;
   margin: 0;
   font-weight: 600;
+}
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.filter-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 13px;
+  cursor: pointer;
+}
+.filter-actions button:hover,
+.filter-actions button[aria-pressed='true'] {
+  background: var(--muted);
+}
+.filter-actions button[aria-pressed='true'] {
+  border-color: var(--primary);
 }
 .collapse-button {
   width: 24px;
@@ -480,6 +514,7 @@ select:focus-visible {
 }
 .content-area {
   min-width: 0;
+  margin-top: 18px;
 }
 .search-row {
   display: flex;
@@ -487,17 +522,35 @@ select:focus-visible {
   align-items: center;
 }
 .search-box {
-  height: 50px;
+  --search-radius: 15px;
+  --search-height: 50px;
+  height: var(--search-height);
   flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.search-surface {
+  position: absolute;
+  inset: 0 0 auto;
+  border-radius: var(--search-radius);
+  background: var(--card);
+}
+.search-box[data-open] .search-surface {
+  z-index: 10;
+  box-shadow: 0 12px 40px #0003;
+}
+.search-field {
+  height: var(--search-height);
   display: flex;
   align-items: center;
   gap: 10px;
-  border-radius: 18px;
-  background: var(--card);
   color: var(--muted-foreground);
   padding: 0 17px;
 }
-.search-box input {
+.search-field svg {
+  flex: none;
+}
+.search-field input {
   border: 0;
   outline: 0;
   min-width: 0;
@@ -506,9 +559,67 @@ select:focus-visible {
   background: transparent;
   font-size: 14px;
 }
-.search-box input::placeholder {
+.search-field input::placeholder {
   color: var(--muted-foreground);
   opacity: 1;
+}
+.search-suggestions {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .search-suggestions {
+    transition: grid-template-rows 180ms ease-out, opacity 180ms ease-out;
+  }
+  @starting-style {
+    .search-suggestions {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
+}
+.search-suggestion-content {
+  min-height: 0;
+  overflow: hidden;
+}
+.search-suggestion-status {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 17px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.search-suggestion-list {
+  max-height: min(18rem, 45dvh);
+  margin: 0;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.search-suggestion-list button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+.search-suggestion-list strong {
+  overflow-wrap: anywhere;
+}
+.search-suggestion-list button[aria-selected='true'],
+.search-suggestion-list button:hover {
+  background: var(--muted);
+}
+.search-suggestion-list span {
+  color: var(--muted-foreground);
+  font-size: 12px;
 }
 .shortcut {
   display: flex;
@@ -521,86 +632,14 @@ select:focus-visible {
   font-size: 12px;
 }
 .filter-toggle {
+  flex: none;
   border-radius: 16px;
   width: 52px;
   height: 50px;
 }
-.chips-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 18px 0;
-  overflow: visible;
-}
-.quick-filters {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding-bottom: 3px;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  background: var(--card);
-  border: 1px solid transparent;
-  border-radius: 28px;
-  min-height: 42px;
-  padding: 0 19px;
-  white-space: nowrap;
-  font-size: 15px;
-  cursor: pointer;
-}
-.chip.selected {
-  border-color: var(--primary);
-  background: var(--muted);
-}
-.more-wrap {
-  position: relative;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.more-chip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-.more-menu {
-  position: absolute;
-  right: 0;
-  top: 49px;
-  width: 180px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--card);
-  box-shadow: 0 8px 25px #00000012;
-  z-index: 5;
-}
-.more-menu button {
-  width: 100%;
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  border: 0;
-  background: transparent;
-  border-radius: 9px;
-  text-align: left;
-  padding: 10px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.more-menu button:hover {
-  background: var(--muted);
-}
 .results-panel {
   background: var(--card);
-  border-radius: 34px;
+  border-radius: 30px;
   padding: 24px 27px 27px;
   min-height: 700px;
 }
@@ -645,14 +684,54 @@ select:focus-visible {
   align-items: center;
   gap: 8px;
 }
-.sort-label select {
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  padding: 10px 30px 10px 13px;
-  background: var(--card);
+.sort-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 120px;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--muted);
   color: var(--foreground);
-  font-size: 14px;
+  white-space: nowrap;
   cursor: pointer;
+}
+.sort-value:focus-visible,
+.sort-value[aria-expanded='true'] {
+  outline: none;
+  background: var(--border);
+}
+.sort-menu {
+  --popover-width: min(10rem, calc(100% - 24px));
+  padding: 4px;
+  border-radius: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 14px;
+}
+.sort-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.sort-menu button[aria-checked='true'] {
+  font-weight: 600;
+}
+.sort-menu button:hover,
+.sort-menu button:focus-visible {
+  outline: none;
+  background: var(--muted);
 }
 .view-button {
   width: 40px;
@@ -661,8 +740,12 @@ select:focus-visible {
   color: var(--muted-foreground);
 }
 .view-button.view-active {
-  border: 1.5px solid var(--primary);
   color: var(--primary);
+}
+@media (hover: hover) {
+  .view-button:hover {
+    color: var(--primary);
+  }
 }
 .agent-grid {
   display: grid;
@@ -992,9 +1075,6 @@ select:focus-visible {
   cursor: not-allowed;
   opacity: 0.5;
 }
-.mobile-menu {
-  display: none;
-}
 .privacy-page {
   width: min(760px, calc(100% - 32px));
   margin: 48px auto;
@@ -1042,11 +1122,6 @@ select:focus-visible {
   font-weight: 700;
 }
 @media (min-width: 1600px) {
-  .workspace {
-    grid-template-columns: 276px minmax(0, 1fr);
-    gap: 26px;
-    padding: 26px 26px 36px 36px;
-  }
   .agent-grid {
     gap: 24px;
   }
@@ -1064,12 +1139,7 @@ select:focus-visible {
     scrollbar-width: none;
   }
   .workspace {
-    grid-template-columns: 245px minmax(0, 1fr);
-    gap: 18px;
     padding: 22px 20px;
-  }
-  .filter-panel {
-    padding: 18px 20px;
   }
   .agent-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1114,32 +1184,10 @@ select:focus-visible {
     height: 30px;
   }
   .workspace {
-    grid-template-columns: minmax(0, 1fr);
     padding: 18px;
-  }
-  .filter-panel {
-    display: none;
-    min-height: 0;
-    position: fixed;
-    left: 16px;
-    top: calc(var(--header-height) + 18px);
-    bottom: 16px;
-    width: min(330px, calc(100vw - 32px));
-    z-index: 9;
-    overflow: auto;
-    box-shadow: 0 12px 45px #0002;
-  }
-  .filter-panel.filters-open {
-    display: block;
-  }
-  .filter-toggle {
-    display: grid;
   }
   .agent-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .mobile-menu {
-    display: none;
   }
 }
 @media (max-width: 640px) {
@@ -1152,9 +1200,6 @@ select:focus-visible {
   .brand-wordmark {
     width: 96px;
   }
-  .filter-panel {
-    top: calc(var(--header-height) + 24px);
-  }
   .main-nav {
     display: none;
   }
@@ -1166,20 +1211,21 @@ select:focus-visible {
   }
   .workspace {
     padding: 13px 12px 24px;
-    gap: 12px;
   }
   .search-row {
     gap: 7px;
   }
   .search-box {
-    height: 46px;
-    padding: 0 12px;
-    border-radius: 15px;
+    --search-radius: 12px;
+    --search-height: 46px;
   }
-  .search-box input {
+  .search-field {
+    padding: 0 12px;
+  }
+  .search-field input {
     font-size: 12px;
   }
-  .search-box > svg {
+  .search-field > svg {
     width: 18px;
   }
   .shortcut {
@@ -1190,17 +1236,11 @@ select:focus-visible {
     height: 46px;
     border-radius: 14px;
   }
-  .chips-row {
-    margin: 12px 0;
-    gap: 7px;
-  }
-  .chip {
-    min-height: 38px;
-    padding: 0 13px;
-    font-size: 12px;
+  .content-area {
+    margin-top: 12px;
   }
   .results-panel {
-    border-radius: 24px;
+    border-radius: 20px;
     padding: 16px 12px;
     min-height: 70vh;
   }
@@ -1219,9 +1259,10 @@ select:focus-visible {
   .sort-label {
     font-size: 0;
   }
-  .sort-label select {
+  .sort-value {
+    min-width: 98px;
+    height: 32px;
     font-size: 12px;
-    padding: 9px 22px 9px 9px;
   }
   .result-controls {
     gap: 5px;

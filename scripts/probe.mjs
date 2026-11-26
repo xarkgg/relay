@@ -45,15 +45,27 @@ async function checkMarketplace(url, label) {
     verify(await page.$eval('.results-count strong', node => node.textContent === '12'), `${label}: count reflects the displayed listings`);
     verify(await page.$eval('.preview-footer', node => node.textContent.includes('Sample listings')), `${label}: preview status is explicit`);
 
-    await page.type('input[aria-label="Search agents"]', 'Domain');
+    const searchInput = 'input[aria-label="Search agents"]';
+    verify(await page.$eval(searchInput, node => node.closest('.search-box').nextElementSibling.matches('.filter-toggle')), `${label}: search and Filters sit together above the results`);
+    await page.keyboard.down('Control');
+    await page.keyboard.press('KeyK');
+    await page.keyboard.up('Control');
+    await page.waitForSelector(`${searchInput}[aria-expanded="true"]`);
+    verify(await page.$eval(searchInput, node => node === document.activeElement), `${label}: the keyboard shortcut opens and focuses search`);
+    await page.type(searchInput, 'Domain');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 1);
-    verify(await page.$eval('.agent-card h2', node => node.textContent === 'Domain Idea Generator'), `${label}: hydrated search works under CSP`);
-    await page.type('input[aria-label="Search agents"]', ' no-such-agent');
+    verify(await page.$eval('.agent-card h2', node => node.textContent === 'Domain Idea Generator'), `${label}: the search field updates the agent grid as you type`);
+    verify(await page.$eval('.search-suggestion-list [role="option"] strong', node => node.textContent === 'Domain Idea Generator'), `${label}: live agent suggestions appear below the search field`);
+    await page.type(searchInput, ' no-such-agent');
     await page.waitForSelector('.empty-state');
-    verify(await page.$eval('.empty-state', node => node.textContent.includes('No agents found')), `${label}: empty results are handled`);
+    verify(await page.$eval('.empty-state', node => node.textContent.includes('No agents found')), `${label}: empty search results are handled`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.search-suggestions', {hidden:true});
     await page.click('.empty-state button');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 12);
 
+    await page.click('[aria-label="Show filters"]');
+    await page.waitForSelector('.filters-popover:not([hidden])', {visible:true});
     await page.click('.filter-option input[aria-label="Marketing"]');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 4);
     await page.click('.filter-option input[aria-label="Premium"]');
@@ -61,18 +73,28 @@ async function checkMarketplace(url, label) {
     verify(await page.$$eval('.pricing-badge', nodes => nodes.every(node => node.textContent === 'Premium')), `${label}: category and pricing filters combine`);
     await page.click('.clear-button');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 12);
+    await page.click('.filter-actions button:nth-child(2)');
+    await page.waitForSelector('.filters-popover', {hidden:true});
+    verify(await page.$eval('.sort-value span', node => node.textContent === 'Top rated'), `${label}: Filters offers the Top rated shortcut`);
 
+    async function selectSort(value) {
+      await page.click('.sort-value');
+      const option = await page.waitForSelector(`.sort-menu button[aria-label="${value}"]`, {visible:true});
+      await option.click();
+      await page.waitForSelector('.sort-menu', {hidden:true});
+    }
     for (const sort of ['Top rated', 'Most popular']) {
-      await page.select('select[aria-label="Sort agents"]', sort);
+      await selectSort(sort);
       await page.waitForFunction(() => document.querySelector('.agent-card h2').textContent === 'Domain Idea Generator');
       verify(await page.$eval('.agent-card h2', node => node.textContent === 'Domain Idea Generator'), `${label}: ${sort} sorting works`);
     }
-    await page.select('select[aria-label="Sort agents"]', 'Relevance');
+    await selectSort('Relevance');
     await page.waitForFunction(() => document.querySelector('.agent-card h2').textContent === 'Buyer Persona Builder');
     await page.click('.save-button');
     await page.waitForSelector('.save-button[aria-pressed="true"]');
-    await page.click('.more-chip');
-    await page.click('.more-menu button');
+    await page.click('[aria-label="Show filters"]');
+    await page.waitForSelector('.filters-popover:not([hidden])', {visible:true});
+    await page.click('.filter-actions button');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 1);
     verify(await page.$eval('.agent-card h2', node => node.textContent === 'Buyer Persona Builder'), `${label}: saved view shows only saved agents`);
     await page.click('.save-button');
@@ -105,11 +127,11 @@ async function checkMarketplace(url, label) {
 
     await page.setViewport({width:390,height:844});
     await page.click('[aria-label="Show filters"]');
-    await page.waitForSelector('.filter-panel.filters-open');
+    await page.waitForSelector('.filters-popover:not([hidden])', {visible:true});
     await page.click('.filter-option input[aria-label="Marketing"]');
     await page.waitForFunction(() => document.querySelectorAll('.agent-card').length === 4);
     await page.click('[aria-label="Close filters"]');
-    verify(await page.$eval('.filter-panel', node => !node.classList.contains('filters-open')), `${label}: mobile filters open and close`);
+    verify(await page.$eval('.filters-popover', node => node.hidden), `${label}: mobile filters open and close`);
 
     await page.click('.preview-footer a');
     await page.waitForSelector('.privacy-page');

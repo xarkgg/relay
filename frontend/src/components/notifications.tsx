@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Bell, X } from 'lucide-react'
-import { useHeaderPopover } from './use-header-popover'
+import { usePopover } from './use-popover'
 
 const sampleNotifications = [
   {
@@ -21,7 +21,7 @@ const sampleNotifications = [
   },
   {
     title: 'Find your saved agents',
-    message: 'Open More in Discover to see your saved list.',
+    message: 'Open Filters in Discover and choose Saved agents.',
     time: '2 hours ago',
   },
   {
@@ -52,7 +52,7 @@ const sampleNotifications = [
 ]
 
 export default function Notifications() {
-  const { id, trigger, panel, style, toggle } = useHeaderPopover()
+  const { id, trigger, panel, open, style, toggle } = usePopover({ animate: true })
   const [allRead, setAllRead] = useState(false)
   const unreadCount = allRead ? 0 : sampleNotifications.length
 
@@ -62,9 +62,9 @@ export default function Notifications() {
         ref={trigger}
         type="button"
         className="icon-button notification"
-        aria-label={style ? 'Close notifications' : 'Notifications'}
+        aria-label={open ? 'Close notifications' : 'Notifications'}
         aria-haspopup="dialog"
-        aria-expanded={style !== null}
+        aria-expanded={open}
         aria-controls={style ? id : undefined}
         onClick={toggle}
       >
@@ -81,9 +81,10 @@ export default function Notifications() {
           <section
             ref={panel}
             id={id}
-            className="header-popover notification-panel"
+            className="popover notification-panel"
             role="dialog"
             aria-labelledby={`${id}-title`}
+            inert={!open}
             tabIndex={-1}
             style={style}
           >

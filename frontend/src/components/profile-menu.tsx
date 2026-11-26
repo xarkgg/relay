@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { ChevronDown, LifeBuoy, Settings, UserRound } from 'lucide-react'
-import { useHeaderPopover } from './use-header-popover'
+import { usePopover } from './use-popover'
 
 const links = [
   { label: 'Profile', href: '/profile/', icon: UserRound },
@@ -9,7 +9,7 @@ const links = [
 ]
 
 export default function ProfileMenu() {
-  const { id, trigger, panel, style, toggle } = useHeaderPopover()
+  const { id, trigger, panel, open, style, toggle } = usePopover({ animate: true })
 
   return (
     <>
@@ -17,9 +17,9 @@ export default function ProfileMenu() {
         ref={trigger}
         type="button"
         className="profile"
-        aria-label={style ? 'Close profile menu' : 'Open profile menu'}
+        aria-label={open ? 'Close profile menu' : 'Open profile menu'}
         aria-haspopup="dialog"
-        aria-expanded={style !== null}
+        aria-expanded={open}
         aria-controls={style ? id : undefined}
         onClick={toggle}
       >
@@ -31,9 +31,10 @@ export default function ProfileMenu() {
           <section
             ref={panel}
             id={id}
-            className="header-popover profile-menu"
+            className="popover profile-menu"
             role="dialog"
             aria-label="Profile menu"
+            inert={!open}
             tabIndex={-1}
             style={style}
           >
