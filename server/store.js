@@ -45,6 +45,10 @@ export function openStore(file = ':memory:') {
       seq INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL,
       grant_id TEXT, run_id TEXT, detail TEXT NOT NULL, created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS activation (
+      id INTEGER PRIMARY KEY CHECK(id=1), private_key TEXT NOT NULL, public_key TEXT NOT NULL,
+      token TEXT NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, updated_at INTEGER NOT NULL
+    );
     PRAGMA user_version = 1;
   `);
   // In-flight work is never automatically replayed after a process restart.

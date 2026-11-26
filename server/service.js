@@ -1,9 +1,9 @@
 import { parseCsv, followUps, formatAmount } from '../shared/invoices.js';
-import { checkGrant, makeGrant, permittedInput, presentGrant, revokeGrant } from './grants.js';
+import { AGENT, checkGrant, makeGrant, permittedInput, presentGrant, revokeGrant } from './grants.js';
 import { hash, id } from './store.js';
 import { RelayError, demand } from './errors.js';
 
-export function createService(store, model) {
+export function createService(store, model, activation = {require(){}}) {
   const active = new Map();
   const denied = (grantId, error, runId = null) => store.event('action.refused', {
     grantId, runId, detail: { code: error.code || 'INVALID_REQUEST' }
@@ -46,6 +46,7 @@ export function createService(store, model) {
       let runId;
       try {
         demand(!active.has(grantId), 'RUN_BUSY', 'This grant already has a running task.', 409);
+        if (mode === 'local-model') activation.require(AGENT.id);
         const controller = new AbortController();
         const { grant, inputs } = store.transaction(() => {
           const grant = checkGrant(store, grantId, 'read_invoices');
@@ -68,11 +69,14 @@ export function createService(store, model) {
         const report = followUps(invoices, today());
         const selected = report.due.slice(0, grant.max_drafts);
         let drafts;
-        if (mode === 'local-model' && selected.length) drafts = await model.draft(selected, controller.signal);
+        if (mode === 'local-model' && selected.length) {
+          drafts = await model.draft(selected, controller.signal);
+        }
         else drafts = selected.map(invoice => ({ invoiceId: invoice.id,
           body: `Hello ${invoice.customer}, a quick reminder about invoice ${invoice.id} for ${formatAmount(invoice.amountStroops)} Pi, due ${invoice.dueDate}. Could you share an update when you have a moment? Thank you.` }));
         store.transaction(() => {
           checkGrant(store, grantId, 'draft_reminders');
+          if (mode === 'local-model') activation.require(AGENT.id);
           for (const draft of drafts) {
             const source = selected.find(invoice => invoice.id === draft.invoiceId);
             store.db.prepare(`INSERT INTO drafts(id,run_id,input_id,invoice_id,customer,source_row,body,digest)

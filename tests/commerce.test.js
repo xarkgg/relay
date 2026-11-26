@@ -1,6 +1,7 @@
 import test, {before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
+import {generateKeyPairSync} from 'node:crypto';
 import {openEmbeddedCommerceDatabase} from '../server/commerce/embedded.js';
 import {commerceConfig} from '../server/commerce/config.js';
 import {createCommerceApp} from '../server/commerce/app.js';
@@ -13,6 +14,9 @@ const TOKEN_A='fixture-token-user-a-123456';
 const TOKEN_B='fixture-token-user-b-123456';
 const TX='a'.repeat(64);
 let db,provider,server,base,config;
+const entitlementKeys=generateKeyPairSync('ed25519');
+const PRIVATE_KEY=entitlementKeys.privateKey.export({format:'der',type:'pkcs8'}).toString('base64');
+const PUBLIC_KEY=entitlementKeys.publicKey.export({format:'der',type:'spki'}).toString('base64');
 let payments=new Map(),calls={approve:0,complete:0},failure=null;
 let scopes=['username','payments'];
 
@@ -49,7 +53,8 @@ before(async()=>{
   }));
   config=commerceConfig({RELAY_PI_AUTH_ENABLED:'1',RELAY_PI_CHECKOUT_ENABLED:'1',
     RELAY_SESSION_SECRET:'test-secret-'.repeat(4),RELAY_PI_API_KEY:'fixture-server-key',
-    RELAY_PI_MERCHANT_ADDRESS:MERCHANT,RELAY_PI_PRICE:'1.25'});
+    RELAY_PI_MERCHANT_ADDRESS:MERCHANT,RELAY_PI_PRICE:'1.25',RELAY_DEVICE_ACTIVATION_ENABLED:'1',
+    RELAY_ENTITLEMENT_PRIVATE_KEY:PRIVATE_KEY,RELAY_ENTITLEMENT_PUBLIC_KEY:PUBLIC_KEY,RELAY_ENTITLEMENT_KID:'test-key-1'});
   const pi=createPiClient({apiKey:config.apiKey,base:`http://127.0.0.1:${provider.address().port}/v2`});
   server=await listen(createCommerceApp({config,database:db,pi}));
   base=`http://127.0.0.1:${server.address().port}`;
@@ -86,9 +91,13 @@ async function purchase(session,id='pay-a') {
   return {id,intent};
 }
 const count=async()=>Number((await db.query('SELECT count(*) AS count FROM relay_entitlements')).rows[0].count);
+async function machine(path,body) {
+  const response=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  return {status:response.status,body:await response.json()};
+}
 
 test('commerce schema records its applied migration',async()=>{
-  assert.deepEqual((await db.query('SELECT version FROM relay_schema_migrations ORDER BY version')).rows,[{version:1}]);
+  assert.deepEqual((await db.query('SELECT version FROM relay_schema_migrations ORDER BY version')).rows,[{version:1},{version:2}]);
 });
 test('sign-in uses verified app UID, not payload UID or username',async()=>{
   const a=await login();const b=await login(TOKEN_B);
@@ -215,4 +224,29 @@ test('a transaction hash cannot fund a second access record',async()=>{
   assert.equal((await request('/payments/pay-b/complete',{session,body:{txid:TX}})).status,409);
   assert.equal(await count(),1);
   assert.equal((await db.query("SELECT state FROM relay_payments WHERE id='pay-b'")).rows[0].state,'approved');
+});
+test('one-time pairing binds a signed activation to its local public key',async()=>{
+  const session=await login();await purchase(session);await request('/payments/pay-a/approve',{session,body:{}});
+  await request('/payments/pay-a/complete',{session,body:{txid:TX}});
+  const pairing=await request('/devices/pairing',{session,body:{}});
+  assert.equal(pairing.status,201);assert.match(pairing.body.code,/^[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){3}$/);
+  const deviceKeys=generateKeyPairSync('ed25519');
+  const publicKey=deviceKeys.publicKey.export({format:'der',type:'spki'}).toString('base64');
+  const claim=await machine('/devices/claim',{code:pairing.body.code,publicKey,name:'Desk PC'});
+  assert.equal(claim.status,201);assert.equal(claim.body.device.name,'Desk PC');assert.equal(typeof claim.body.token,'string');
+  assert.equal((await machine('/devices/claim',{code:pairing.body.code,publicKey,name:'Replay'})).status,404);
+  const status=await machine('/devices/status',{token:claim.body.token});
+  assert.deepEqual(status.body,{active:true,revoked:false,expiresAt:claim.body.expiresAt});
+  const list=await request('/devices',{session});assert.equal(list.body.devices.length,1);
+  await request(`/devices/${claim.body.device.id}/revoke`,{session,body:{}});
+  const revoked=await machine('/devices/status',{token:claim.body.token});
+  assert.equal(revoked.body.active,false);assert.equal(revoked.body.revoked,true);
+});
+test('expired and malformed pairing codes cannot register a device',async()=>{
+  const session=await login();await purchase(session);await request('/payments/pay-a/approve',{session,body:{}});
+  await request('/payments/pay-a/complete',{session,body:{txid:TX}});
+  assert.equal((await machine('/devices/claim',{code:'WRONG-CODE',publicKey:PUBLIC_KEY,name:'PC'})).status,404);
+  const pairing=await request('/devices/pairing',{session,body:{}});
+  await db.query('UPDATE relay_pairings SET expires_at=0');
+  assert.equal((await machine('/devices/claim',{code:pairing.body.code,publicKey:PUBLIC_KEY,name:'PC'})).status,404);
 });

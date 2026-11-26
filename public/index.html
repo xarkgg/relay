@@ -31,7 +31,7 @@
       </article>
     </section>
     <section class="principles" aria-label="How Relay works"><div><span>01</span><h3>Choose the inputs</h3><p>Explicit imports. No access to the rest of your computer.</p></div><div><span>02</span><h3>Set the limits</h3><p>Pick tools, run limits, and an expiry. Revoke at any time.</p></div><div><span>03</span><h3>Review the work</h3><p>Approve unchanged drafts before anything is exported.</p></div></section>
-    <div id="catalogue-note" class="notice" hidden>This is the public preview. The working agent runs in Relay's local workspace. Desktop packaging and Pi purchases are not available yet.</div>
+    <div id="catalogue-note" class="notice" hidden>This is the public preview. The working agent runs in Relay's local workspace. Hosted checkout and device activation appear here when the operator configures them.</div>
     <div id="error" role="alert" class="error" hidden></div>
     <section id="commerce" class="panel commerce" hidden>
       <div class="section-heading"><div><p class="eyebrow">Your Pi account</p><h2>Test the purchase flow.</h2></div><span class="badge">Activation pending</span></div>
@@ -39,6 +39,7 @@
       <p class="muted">Checkout is Testnet-only. This records a 30-day test access period, not an activated desktop installation. No Mainnet purchase is available.</p>
       <div class="hero-actions"><button id="pi-signin" class="primary">Sign in with Pi</button><button id="pi-signout" class="secondary" hidden>Sign out</button><button id="pi-buy" class="primary" hidden>Testnet checkout</button></div>
       <div id="commerce-message" class="muted" role="status" hidden></div><div id="entitlements"></div><div id="pending-payments"></div>
+      <section id="device-activation" hidden><h3>Activate a local device</h3><p class="muted">Create a ten-minute, one-use code, then enter it in the local workspace. The private device key never reaches this service.</p><button id="pair-device" class="secondary">Create activation code</button><div id="pairing-code" role="status"></div><div id="commerce-devices"></div></section>
     </section>
     <section id="workspace" data-local class="workspace">
       <div class="section-heading"><div><p class="eyebrow">Your workspace</p><h2>One job, within bounds.</h2></div><button id="refresh" class="secondary">Refresh</button></div>
@@ -50,6 +51,7 @@
             <details><summary>CSV format</summary><code>invoice_id,customer,amount_pi,due_date,status</code><p class="muted">Dates: YYYY-MM-DD. Status: unpaid, paid, or void. Paid status comes from your register, not a wallet check.</p></details>
           </section>
           <section class="panel"><div class="panel-heading"><h3>Permissions</h3><button id="grant-open" class="small-button">New grant</button></div><div id="grants"></div></section>
+          <section class="panel" id="activation-panel"><div class="panel-heading"><h3>Device activation</h3><span class="state" id="activation-state">Not configured</span></div><p class="muted" id="activation-copy">Activation connects a paid Testnet access record to this local workspace.</p><form id="activation-form" hidden><label class="field-label" for="activation-code">One-time code</label><input type="text" id="activation-code" name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="24" required><label class="field-label" for="device-name">Device name</label><input type="text" id="device-name" name="name" maxlength="80" value="My Relay device" required><button class="primary" type="submit">Activate device</button></form></section>
         </aside>
         <div class="workspace-main">
           <section class="panel run-panel"><p class="eyebrow">Follow-up Desk</p><h3>Prepare your follow-ups</h3>

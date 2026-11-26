@@ -20,7 +20,7 @@ app.all('/api/commerce/*splat',(req,res,next)=>{
   record.calls.push({method:req.method,path:req.path,body:req.body,authorization:req.get('authorization'),csrf:req.get('x-relay-csrf')});
   next();
 });
-app.get('/api/commerce/config',(_req,res)=>res.json({authEnabled:true,checkoutEnabled:true,network:'Pi Testnet',sandbox:true,activationReady:false,price:'12500000'}));
+app.get('/api/commerce/config',(_req,res)=>res.json({authEnabled:true,checkoutEnabled:true,network:'Pi Testnet',sandbox:true,activationReady:true,price:'12500000'}));
 app.get('/api/commerce/session',(_req,res)=>res.json({account:null}));
 app.post('/api/commerce/auth/pi',(req,res)=>{
   assert.deepEqual(req.body,{accessToken:'fixture-access-token-123456'});
@@ -37,6 +37,8 @@ app.post('/api/commerce/payments/pay-fixture/complete',(req,res)=>{
   res.json({entitlement:entitlements[0]});
 });
 app.post('/api/commerce/logout',(_req,res)=>{account=null;entitlements=[];res.json({ok:true});});
+app.get('/api/commerce/devices',(_req,res)=>res.json({devices:[]}));
+app.post('/api/commerce/devices/pairing',(_req,res)=>res.status(201).json({code:'ABCD-EFGH-JKLM-NPQR',expiresAt:Date.now()+600_000}));
 app.use(express.static('dist'));
 const server=await new Promise(resolve=>{const server=app.listen(0,'127.0.0.1',()=>resolve(server));});
 const base=`http://127.0.0.1:${server.address().port}`;
@@ -74,7 +76,10 @@ try {
   verify(payment.amount===1.25&&payment.metadata.relay_intent==='intent-fixture'&&Object.keys(payment).length===3,'SDK receives only the server-priced payment fields');
   const mutations=record.calls.filter(call=>/approve|complete/.test(call.path));
   verify(mutations.length===2&&mutations.every(call=>call.authorization===`Bearer ${'a'.repeat(64)}`&&call.csrf==='csrf-fixture'),'approval and completion carry the session and CSRF proof');
-  verify(await page.$eval('#entitlements',node=>node.textContent.includes('activation is still pending')),'completed Testnet payment does not claim device activation');
+  verify(await page.$eval('#entitlements',node=>node.textContent.includes('Activate a local device')),'completed Testnet payment grants access without claiming the device is active');
+  await page.click('#pair-device');
+  await page.waitForFunction(()=>document.querySelector('#pairing-code').textContent.includes('ABCD-EFGH'));
+  verify(await page.$eval('#pairing-code',node=>node.textContent.includes('NPQR')),'paid user can create a short-lived activation code');
   for (const width of [320,390,1280]) {
     await page.setViewport({width,height:width<600?844:900});
     verify(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`commerce UI has no horizontal overflow at ${width}px`);

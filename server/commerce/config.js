@@ -1,6 +1,7 @@
 import { demand } from '../errors.js';
 import { parseAmount, formatAmount } from '../../shared/invoices.js';
 import { isPiAddress } from '../../shared/pi-address.js';
+import { loadEntitlementKeys } from '../entitlement-token.js';
 
 function flag(value) {
   demand(value === undefined || ['0','1'].includes(value), 'BAD_CONFIG', 'Feature flags must be 0 or 1.');
@@ -13,7 +14,8 @@ export function commerceConfig(env = process.env) {
   const sandbox = flag(env.RELAY_PI_SANDBOX ?? '1');
   const network = env.RELAY_PI_NETWORK || 'Pi Testnet';
   const sessionSecret = env.RELAY_SESSION_SECRET || '';
-  const url = env.RELAY_COMMERCE_URL || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://127.0.0.1:4311');
+  const url = env.RELAY_COMMERCE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://127.0.0.1:4311');
   const origin = new URL(url).origin;
   demand(!env.VERCEL || origin.startsWith('https:'),'BAD_CONFIG','Serverless accounts require an HTTPS origin.');
   demand(url.replace(/\/$/,'') === origin, 'BAD_CONFIG', 'RELAY_COMMERCE_URL must be an exact origin.');
@@ -31,10 +33,16 @@ export function commerceConfig(env = process.env) {
     parseAmount(Number(formatAmount(price)).toFixed(7)) === price, 'BAD_CONFIG', 'The Pi price must round-trip exactly through the SDK.');
   const origins = new Set([origin]);
   if (env.VERCEL_PROJECT_PRODUCTION_URL) origins.add(`https://${env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  if (env.VERCEL_URL) origins.add(`https://${env.VERCEL_URL}`);
+  const activationEnabled=flag(env.RELAY_DEVICE_ACTIVATION_ENABLED);
+  demand(!activationEnabled||checkoutEnabled,'BAD_CONFIG','Device activation requires Testnet checkout.');
+  const signingKeys=activationEnabled?loadEntitlementKeys({privateKey:env.RELAY_ENTITLEMENT_PRIVATE_KEY,
+    publicKey:env.RELAY_ENTITLEMENT_PUBLIC_KEY,kid:env.RELAY_ENTITLEMENT_KID}):null;
   return {
     authEnabled, checkoutEnabled, sessionSecret, network, origin, origins,
     sandbox, apiKey, merchant, price,
     pgTlsVerify: flag(env.RELAY_PG_TLS_VERIFY ?? '1'),
+    activationEnabled,signingKeys,
     databaseUrl: env.RELAY_DATABASE_URL || env.DATABASE_URL || env.POSTGRES_URL || '',
     serverless: Boolean(env.VERCEL),
     pgliteDir: env.RELAY_COMMERCE_PGLITE_DIR || 'data/commerce'

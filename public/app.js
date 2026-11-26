@@ -3,7 +3,7 @@ import { parseCsv, followUps, formatAmount, sampleCsv } from '/shared/invoices.j
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
 const local = document.body.dataset.mode === 'local';
-let state = { imports: [], grants: [], drafts: [], runs: [], events: [] };
+let state = { imports: [], grants: [], drafts: [], runs: [], events: [], activation:{configured:false,active:false} };
 let csrf = '', running = false;
 const time = value => new Date(value).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 
@@ -45,8 +45,16 @@ function paint() {
     const count = state.drafts.filter(draft => draft.grant_id === grant.id && draft.state === 'approved').length;
     return count ? `<div class="export-bar"><span>${count} approved drafts in this grant</span><button class="primary" data-action="export" data-id="${escape(grant.id)}">Export approved drafts</button></div>` : '';
   }).join('');
-  const labels = { 'import.created':'Register imported', 'grant.created':'Permission granted', 'grant.revoked':'Permission revoked', 'run.started':'Run started', 'run.completed':'Run completed', 'action.refused':'Action refused', 'draft.reviewed':'Draft reviewed', 'export.created':'Approved drafts exported' };
+  const labels = { 'import.created':'Register imported', 'grant.created':'Permission granted', 'grant.revoked':'Permission revoked', 'run.started':'Run started', 'run.completed':'Run completed', 'action.refused':'Action refused', 'draft.reviewed':'Draft reviewed', 'export.created':'Approved drafts exported', 'device.activated':'Device activated', 'device.revoked':'Device revoked' };
   $('#events').innerHTML = state.events.map(event => `<li><span>${escape(labels[event.type] || event.type)}${event.detail.code ? ` · ${escape(event.detail.code)}` : ''}${event.detail.state ? ` · ${escape(event.detail.state)}` : ''}</span><time datetime="${new Date(event.created_at).toISOString()}">${escape(time(event.created_at))}</time></li>`).join('') || '<li>No activity yet.</li>';
+  const activation=state.activation||{configured:false,active:false};
+  $('#activation-form').hidden=!activation.configured||activation.active;
+  $('#activation-state').textContent=!activation.configured?'Not configured':activation.active?'Active':activation.revoked?'Revoked':'Not active';
+  $('#activation-state').className=`state ${activation.active?'':'revoked'}`;
+  $('#activation-copy').textContent=!activation.configured?'The operator has not configured signed device activation.':activation.active
+    ?`Active until ${time(activation.expiresAt)}${activation.offline?' · status not checked online':''}. Local AI is unlocked.`
+    :activation.revoked?'This device was revoked. Create a new code from the storefront to activate it again.'
+    :'Enter the one-time code from your signed-in Relay storefront.';
 }
 
 async function refresh() { state = await api('/workspace'); paint(); }
@@ -81,6 +89,10 @@ if (!local) {
       const health = await api('/model');
       $('#model-choice').disabled = !health.available;
       $('#model-state').textContent = health.available ? health.name : 'Configured, not available';
+    }
+    if(initial.activation?.configured) {
+      state.activation=await api('/activation');
+      paint();
     }
   });
 }
@@ -123,6 +135,17 @@ if (local) {
       $('#grant-dialog').close();
     } catch (error) { errorMessage(error.message, '#grant-error'); }
     finally { submit.disabled = false; }
+  });
+  $('#activation-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    action(async()=>{
+      const data=new FormData(form);
+      state.activation=await api('/activation/claim',{method:'POST',body:{code:data.get('code'),name:data.get('name')}});
+      form.reset();
+      $('#device-name').value='My Relay device';
+      paint();
+    });
   });
   $('#run').addEventListener('click', () => action(async () => {
     const grantId = $('#active-grant').value;

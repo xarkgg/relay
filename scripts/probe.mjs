@@ -19,7 +19,12 @@ const browser = await puppeteer.launch({headless:true, pipe:true, timeout:30_000
   args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 await mkdir('probe-shots',{recursive:true});
 const store = openStore();
-const { app, service } = createApp({store});
+let activationRecord={configured:true,active:false};
+const activation={configured:true,status:()=>activationRecord,sync:async()=>activationRecord,
+  async claim(code,name){assert.equal(code,'ABCD-EFGH-JKLM-NPQR');assert.equal(name,'Probe phone');
+    activationRecord={configured:true,active:true,expiresAt:Date.now()+86_400_000,deviceId:'probe-device',agent:'follow-up-desk',offline:false};return activationRecord;},
+  require(){if(!activationRecord.active)throw new Error('not active');}};
+const { app, service } = createApp({store,activation});
 const server = await new Promise(resolve => { const server = app.listen(0,'127.0.0.1',() => resolve(server)); });
 const base = `http://127.0.0.1:${server.address().port}`;
 let checks = 0;
@@ -67,6 +72,19 @@ try {
   await page.waitForFunction(() => document.querySelector('.grant .state')?.textContent === 'revoked');
   verify(await page.$eval('#run',node => node.disabled),'revocation disables future runs');
   verify(await page.$('[data-action=export]') === null,'revocation removes the export action');
+  await page.type('#activation-code','ABCD-EFGH-JKLM-NPQR');
+  await page.$eval('#device-name',node=>{node.value='Probe phone';});
+  await page.click('#activation-form button[type=submit]');
+  try {
+    await page.waitForFunction(()=>document.querySelector('#activation-state').textContent==='Active',{timeout:8000});
+  } catch (error) {
+    console.error('activation state:',await page.$eval('#activation-state',node=>node.textContent),
+      '| error:',await page.$eval('#error',node=>node.textContent),
+      '| copy:',await page.$eval('#activation-copy',node=>node.textContent));
+    throw error;
+  }
+  verify(activationRecord.active,'local activation form updates the workspace');
+  verify(await page.$eval('#activation-copy',node=>node.textContent.includes('Local AI is unlocked')),'active device explains the unlocked boundary');
   for (const width of [320,390,1280]) {
     await page.setViewport({width,height:width < 600 ? 844 : 1000});
     await page.screenshot({path:`probe-shots/local-${width}.png`,fullPage:true});

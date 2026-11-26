@@ -9,8 +9,10 @@ const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const sharedDir = fileURLToPath(new URL('../shared/', import.meta.url));
 const digest = value => createHash('sha256').update(value).digest('hex');
 
-export function createApp({ store, model = createModel(), embedOrigins = [] }) {
-  const service = createService(store, model);
+export function createApp({ store, model = createModel(), embedOrigins = [], activation = {
+  configured:false,status:()=>({configured:false,active:false}),sync:async()=>({configured:false,active:false})
+} }) {
+  const service = createService(store, model, activation);
   const sessions = new Map();
   const app = express();
   app.disable('x-powered-by');
@@ -58,7 +60,7 @@ export function createApp({ store, model = createModel(), embedOrigins = [] }) {
       sessions.set(digest(token), session);
       res.set('Set-Cookie', `relay_local=${token}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=3600`);
     }
-    res.json({ csrf: session.csrf, mode: 'local', model: { configured: model.configured, name: model.name },
+    res.json({ csrf: session.csrf, mode: 'local', model: { configured: model.configured, name: model.name }, activation:activation.status(),
       ...service.snapshot() });
   });
   app.use('/api', (req, _res, next) => {
@@ -79,8 +81,10 @@ export function createApp({ store, model = createModel(), embedOrigins = [] }) {
     }
     next();
   });
-  app.get('/api/workspace', (_req, res) => res.json(service.snapshot()));
+  app.get('/api/workspace', (_req, res) => res.json({...service.snapshot(),activation:activation.status()}));
   app.get('/api/model', async (_req, res) => res.json(await model.health()));
+  app.get('/api/activation',async (_req,res)=>res.json(await activation.sync()));
+  app.post('/api/activation/claim',async (req,res)=>res.status(201).json(await activation.claim(req.body.code,req.body.name)));
   app.post('/api/imports', (req, res) => res.status(201).json(service.importCsv(req.body)));
   app.post('/api/grants', (req, res) => res.status(201).json(service.grant(req.body)));
   app.post('/api/grants/:id/revoke', (req, res) => { service.revoke(req.params.id); res.json({ ok: true }); });

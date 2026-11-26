@@ -3,7 +3,7 @@ import {formatAmount} from '/shared/invoices.js';
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
 let config,account=null,token='',csrf='',sdkPromise,busy=false;
-let entitlements=[],pending=[],incomplete=new Set();
+let entitlements=[],pending=[],devices=[],pairing=null,incomplete=new Set();
 
 function message(text,error=false) {
   const node=$('#commerce-message');
@@ -30,14 +30,19 @@ function paint() {
   $('#pi-buy').hidden=!config.checkoutEnabled||!account||!!entitlements.length;
   $('#pi-buy').textContent=`Testnet checkout · ${config.price?formatAmount(config.price):''} Pi`;
   for(const node of document.querySelectorAll('#commerce button'))node.disabled=busy;
-  $('#entitlements').innerHTML=entitlements.map(item=>`<div class="notice">Testnet access recorded until ${escape(new Date(item.expires_at).toLocaleDateString())}. Device activation is still pending.</div>`).join('');
+  $('#entitlements').innerHTML=entitlements.map(item=>`<div class="notice">Testnet access recorded until ${escape(new Date(item.expires_at).toLocaleDateString())}. ${config.activationReady?'Activate a local device to use it.':'Device activation is not configured yet.'}</div>`).join('');
   const ids=new Set([...incomplete,...pending.filter(item=>item.payment_id).map(item=>item.payment_id)]);
   $('#pending-payments').innerHTML=[...ids].map(id=>`<div class="export-bar"><span>Unfinished Pi payment</span><button class="secondary" data-recover="${escape(id)}" ${busy?'disabled':''}>Check payment</button></div>`).join('');
+  $('#device-activation').hidden=!config.activationReady||!entitlements.length;
+  $('#pairing-code').textContent=pairing?`${pairing.code} · expires ${new Date(pairing.expiresAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:'';
+  $('#commerce-devices').innerHTML=devices.map(device=>`<div class="export-bar"><span>${escape(device.name)} · ${device.revoked_at===null?'active':'revoked'}</span>${device.revoked_at===null?`<button class="secondary" data-revoke-device="${escape(device.id)}" ${busy?'disabled':''}>Revoke</button>`:''}</div>`).join('');
 }
 async function refresh() {
   if(account) {
     const result=await request('/purchases');
     entitlements=result.entitlements;pending=result.pending;
+    if(config.activationReady&&entitlements.length)devices=(await request('/devices')).devices;
+    else {devices=[];pairing=null;}
   }
   paint();
 }
@@ -80,7 +85,9 @@ export async function mountCommerce() {
   $('#checkout-status').textContent=config.checkoutEnabled?'Testnet checkout':'Pi checkout not configured';
   if(!config.authEnabled)return;
   $('#catalogue-note').textContent=config.checkoutEnabled
-    ?'Pi sign-in and Testnet purchase verification are available here. Desktop activation and Mainnet checkout are still unavailable.'
+    ?(config.activationReady
+      ?'Pi sign-in and Testnet purchase verification are available here. Buy access, then activate your local device. Mainnet checkout is still unavailable.'
+      :'Pi sign-in and Testnet purchase verification are available here. Device activation and Mainnet checkout are not configured.')
     :'Pi sign-in is available here. Checkout and desktop activation are not configured.';
   $('#commerce').hidden=false;
   const session=await request('/session');
@@ -89,7 +96,7 @@ export async function mountCommerce() {
   $('#pi-signin').addEventListener('click',()=>action(()=>authenticate()));
   $('#pi-signout').addEventListener('click',()=>action(async()=>{
     await request('/logout',{method:'POST',body:{}});
-    account=null;token='';csrf='';entitlements=[];pending=[];incomplete.clear();
+    account=null;token='';csrf='';entitlements=[];pending=[];devices=[];pairing=null;incomplete.clear();
   }));
   $('#pending-payments').addEventListener('click',event=>{
     const button=event.target.closest('[data-recover]');
@@ -127,7 +134,7 @@ export async function mountCommerce() {
           try {
             await request(`/payments/${encodeURIComponent(paymentId)}/complete`,{method:'POST',body:{txid}});
             incomplete.delete(paymentId);
-            message('Pi confirmed the Testnet access record. Device activation is still pending.');
+            message('Pi confirmed the Testnet access record. Create an activation code below for your local device.');
             finish();
           } catch(error){incomplete.add(paymentId);message(error.message,true);}
         },
@@ -146,4 +153,12 @@ export async function mountCommerce() {
       });
     });
   }));
+  $('#pair-device').addEventListener('click',()=>action(async()=>{
+    pairing=await request('/devices/pairing',{method:'POST',body:{}});
+    paint();
+  }));
+  $('#commerce-devices').addEventListener('click',event=>{
+    const button=event.target.closest('[data-revoke-device]');if(!button)return;
+    action(async()=>{await request(`/devices/${encodeURIComponent(button.dataset.revokeDevice)}/revoke`,{method:'POST',body:{}});});
+  });
 }

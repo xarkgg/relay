@@ -8,6 +8,7 @@ import { createService } from '../server/service.js';
 import { createModel } from '../server/model.js';
 import { checkGrant, permittedInput } from '../server/grants.js';
 import { sampleCsv } from '../shared/invoices.js';
+import { RelayError } from '../server/errors.js';
 
 function fixture(t) {
   const store = openStore();
@@ -115,6 +116,14 @@ test('missing model never falls back to templates', async t => {
   await assert.rejects(service.run({grantId:grant.id,mode:'local-model'}), code('MODEL_UNAVAILABLE'));
   assert.equal(service.snapshot().drafts.length, 0);
   assert.equal(service.snapshot().runs[0].state, 'failed');
+});
+test('local AI activation refusal consumes no run', async t => {
+  const { store, input } = fixture(t);
+  const service=createService(store,createModel(),{require(){throw new RelayError('ACTIVATION_REQUIRED','Activate first.',403);}});
+  const grant=service.grant({inputIds:[input.id],tools:['read_invoices','draft_reminders']});
+  await assert.rejects(service.run({grantId:grant.id,mode:'local-model'}),code('ACTIVATION_REQUIRED'));
+  assert.equal(service.snapshot().runs.length,0);
+  assert.equal(service.snapshot().grants.find(row=>row.id===grant.id).used_runs,0);
 });
 test('overlapping registers are refused without creating drafts', async t => {
   const { service, input } = fixture(t);

@@ -5,6 +5,7 @@ import { openCommerceDatabase } from './database.js';
 import { createPiClient } from './pi.js';
 import { createAccounts } from './accounts.js';
 import { createPayments } from './payments.js';
+import { createDevices } from './devices.js';
 import { demand, RelayError } from '../errors.js';
 
 const safeEqual = (a,b) => typeof a === 'string' && timingSafeEqual(
@@ -21,7 +22,7 @@ export function createCommerceApp({config = commerceConfig(), database, pi = cre
   async function services() {
     if (!initialization) initialization = (async () => {
       const db = database || await openCommerceDatabase(config);
-      return {db,accounts:createAccounts(db,pi,config),payments:createPayments(db,pi,config)};
+      return {db,accounts:createAccounts(db,pi,config),payments:createPayments(db,pi,config),devices:createDevices(db,config)};
     })().catch(error => { initialization = null; throw error; });
     return initialization;
   }
@@ -39,10 +40,12 @@ export function createCommerceApp({config = commerceConfig(), database, pi = cre
       demand([...config.origins].some(origin => new URL(origin).host === req.get('host')),
         'HOST_DENIED','This host cannot access Relay accounts.',403);
       const origin = req.get('origin');
-      demand(!origin || config.origins.has(origin),'ORIGIN_DENIED','This origin cannot access Relay accounts.',403);
-      demand(req.get('sec-fetch-site') !== 'cross-site','ORIGIN_DENIED','Cross-site account requests are not allowed.',403);
+      const machine=['/devices/claim','/devices/status'].includes(req.path);
+      demand(machine?!origin:(!origin||config.origins.has(origin)),'ORIGIN_DENIED','This origin cannot access Relay accounts.',403);
+      demand(machine?!req.get('sec-fetch-site'):req.get('sec-fetch-site')!=='cross-site',
+        'ORIGIN_DENIED','Cross-site account requests are not allowed.',403);
       if (!['GET','HEAD'].includes(req.method)) {
-        demand(config.origins.has(origin),'ORIGIN_REQUIRED','A same-origin request is required.',403);
+        demand(machine||config.origins.has(origin),'ORIGIN_REQUIRED','A same-origin request is required.',403);
         demand(req.is('application/json'),'JSON_REQUIRED','Send a JSON request.',415);
       }
       next();
@@ -58,7 +61,7 @@ export function createCommerceApp({config = commerceConfig(), database, pi = cre
     const authReady=config.authEnabled&&storageReady;
     const checkoutReady=config.checkoutEnabled&&authReady;
     res.json({authEnabled:authReady,checkoutEnabled:checkoutReady,network:config.network,
-      sandbox:config.sandbox,activationReady:false,price:checkoutReady?config.price:null});
+      sandbox:config.sandbox,activationReady:checkoutReady&&config.activationEnabled,price:checkoutReady?config.price:null});
   });
   app.get('/session',async (req,res) => {
     if (!config.authEnabled || !tokenFrom(req)) return res.json({account:null});
@@ -73,8 +76,17 @@ export function createCommerceApp({config = commerceConfig(), database, pi = cre
     res.set('Set-Cookie',cookie(result.token,Math.max(1,Math.floor((result.expires-Date.now())/1000))));
     res.json(result);
   });
+  app.post('/devices/claim',async (req,res) => {
+    const {devices}=await services();
+    res.status(201).json(await devices.claim(req.body,req.ip));
+  });
+  app.post('/devices/status',async (req,res) => {
+    const {devices}=await services();
+    res.json(await devices.status(req.body.token));
+  });
   app.use((req,_res,next)=>{
-    const known=['/logout','/purchases','/intents'].includes(req.path) ||
+    const known=['/logout','/purchases','/intents','/devices','/devices/pairing'].includes(req.path) ||
+      /^\/devices\/[A-Za-z0-9_-]{1,120}\/revoke$/.test(req.path)||
       /^\/payments\/[A-Za-z0-9_-]{1,120}\/(approve|complete|recover)$/.test(req.path);
     if(!known)return next(new RelayError('NOT_FOUND','This account endpoint was not found.',404));
     next();
@@ -104,6 +116,11 @@ export function createCommerceApp({config = commerceConfig(), database, pi = cre
     res.json({entitlements:await payments.active(req.relaySession.account.id),pending:pending.rows});
   });
   app.post('/intents',async (req,res) => res.status(201).json(await (await services()).payments.intent(req.relaySession)));
+  app.get('/devices',async (req,res)=>res.json({devices:await (await services()).devices.list(req.relaySession.account.id)}));
+  app.post('/devices/pairing',async (req,res)=>res.status(201).json(await (await services()).devices.pairing(req.relaySession)));
+  app.post('/devices/:id/revoke',async (req,res)=>{
+    await (await services()).devices.revoke(req.relaySession.account.id,req.params.id);res.json({ok:true});
+  });
   app.post('/payments/:id/approve',async (req,res) => res.json(await (await services()).payments.approve(req.params.id,req.relaySession)));
   app.post('/payments/:id/complete',async (req,res) => res.json(await (await services()).payments.complete(req.params.id,req.body.txid,req.relaySession)));
   app.post('/payments/:id/recover',async (req,res) => res.json(await (await services()).payments.recover(req.params.id,req.relaySession)));

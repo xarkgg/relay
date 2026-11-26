@@ -20,12 +20,15 @@ review the drafts, and export only approved work.
 - Optional Pi sign-in verified by the backend against Pi's `/me` API.
 - Testnet checkout with server-priced intents, owner/recipient/network checks,
   exactly-once access records, and interrupted-payment recovery.
+- One-time device pairing that issues a signed, offline-verifiable activation for
+  the local workspace, with revocation from the storefront.
 
 Pi integrations remain disabled until the operator configures them. Real Pi
 credentials and a Testnet transaction are still required to verify the complete
-platform flow. Signed device activation, Mainnet checkout, third-party publishing,
-and SoloHost distribution are not available. There is no cloud inference fallback
-or autonomous message sending. Invoice payment status comes from your register.
+platform flow. Device activation is implemented but unproven against a real Pi
+purchase. Mainnet checkout, third-party publishing, and SoloHost distribution are
+not available. There is no cloud inference fallback or autonomous message sending.
+Invoice payment status comes from your register.
 
 ## Run locally
 
@@ -90,6 +93,12 @@ Set these operator variables on the account service:
 - `RELAY_PI_MERCHANT_ADDRESS`, the app's actual Testnet receiving address.
 - `RELAY_PI_PRICE`, an explicit positive Pi price with up to seven decimal places.
 - `RELAY_PI_CHECKOUT_ENABLED=1` to enable Testnet checkout once those values are set.
+- `RELAY_DEVICE_ACTIVATION_ENABLED=1` to issue signed device activations after a
+  verified purchase.
+- `RELAY_ENTITLEMENT_PRIVATE_KEY`, `RELAY_ENTITLEMENT_PUBLIC_KEY`, and
+  `RELAY_ENTITLEMENT_KID` for the Ed25519 signing key pair. Generate it once,
+  keep the private half on the hosted service only, and give the local workspace
+  just the public half and key ID.
 
 On Vercel, the origin comes from the deployment and production-domain variables.
 Only set `RELAY_COMMERCE_URL` there if it is the exact HTTPS app origin. The local
@@ -111,8 +120,24 @@ contexts. No token is saved in browser localStorage.
 Each intent freezes the price, recipient, network, and account. Access is recorded
 only after Pi attests a verified, completed transaction. Callback retries do not
 extend access, and uncertain network outcomes remain recoverable. A Testnet
-access record lasts 30 days but does not activate the desktop agent yet.
-Mainnet checkout is rejected until the activation boundary is implemented.
+access record lasts 30 days. Mainnet checkout is rejected.
+
+## Activating a local device
+
+After a verified purchase, the storefront can create a ten-minute, single-use
+activation code. Enter it in the local workspace. The workspace generates its own
+Ed25519 key pair, sends only the public half, and stores the signed activation
+locally after verifying it against the operator's public key. The private device
+key never leaves the machine and no document, draft, or register is sent.
+
+The activation is a signed record bound to that device key, the account, the
+access record, and the agent. The local workspace verifies it offline, so a
+network outage does not lock out a paid user. When the storefront is reachable it
+also checks the current status, so revoking a device blocks future local AI runs
+even though earlier output stays yours. Local AI requires an active activation
+once `RELAY_COMMERCE_ORIGIN`, `RELAY_ENTITLEMENT_PUBLIC_KEY`, and
+`RELAY_ENTITLEMENT_KID` are configured; without them the workspace stays in its
+unconfigured development mode.
 
 ## Verification
 

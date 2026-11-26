@@ -42,7 +42,15 @@ CREATE TABLE IF NOT EXISTS relay_accounts (
   id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES relay_accounts(id),
   payment_id TEXT NOT NULL UNIQUE REFERENCES relay_payments(id), agent TEXT NOT NULL,
   network TEXT NOT NULL, starts_at BIGINT NOT NULL, expires_at BIGINT NOT NULL
-)`]];
+)`],[`CREATE TABLE IF NOT EXISTS relay_pairings (
+  id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES relay_accounts(id),
+  entitlement_id TEXT NOT NULL REFERENCES relay_entitlements(id), code_hash TEXT NOT NULL UNIQUE,
+  expires_at BIGINT NOT NULL, used_at BIGINT, created_at BIGINT NOT NULL
+)`,`CREATE TABLE IF NOT EXISTS relay_devices (
+  id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES relay_accounts(id),
+  entitlement_id TEXT NOT NULL REFERENCES relay_entitlements(id), public_key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL, revoked_at BIGINT, created_at BIGINT NOT NULL, last_seen_at BIGINT NOT NULL
+)`,`CREATE INDEX IF NOT EXISTS relay_devices_account ON relay_devices(account_id,created_at)`]];
 
 export async function applyCommerceMigrations(client) {
   await client.query(`CREATE TABLE IF NOT EXISTS relay_schema_migrations (
