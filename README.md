@@ -114,6 +114,9 @@ by Git. The build-only renderer in `frontend/.ssr/` is neither deployed nor serv
 by Express. Pre-rendering preserves the original initial HTML and the website's
 appearance when JavaScript is disabled. Native page links and in-memory state
 behavior are unchanged. Analytics and remote-avatar requests are not included.
+Agent avatars are generated locally from their listing titles using [DiceBear](https://www.dicebear.com/)
+and the [Bottts style by Pablo Stanley](https://bottts.com/). See the
+[avatar license notice](frontend/public/dicebear-license.txt).
 
 ## Pi integration handoff
 

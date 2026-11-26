@@ -1,14 +1,13 @@
+import { Avatar, Style } from '@dicebear/core'
+import bottts from '@dicebear/styles/bottts.json' with { type: 'json' }
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
-  Bot,
   BriefcaseBusiness,
   ChevronDown,
   ChevronUp,
   Compass,
-  Dna,
   Funnel,
-  Globe2,
   Heart,
   LayoutGrid,
   MessageCircleQuestionMark,
@@ -16,12 +15,9 @@ import {
   ReceiptText,
   Search,
   Send,
-  SlidersHorizontal,
-  Sparkles,
   Star,
   Sun,
   TextAlignStart,
-  Users,
   X,
 } from 'lucide-react'
 import { toggleTheme, useTheme } from '../theme'
@@ -40,11 +36,11 @@ type Agent = {
   initials: string
   category: string
   pricing: 'Free' | 'Paid' | 'Premium'
-  icon: string
+  avatarUrl: string
   score: number
 }
 
-const agents: Agent[] = [
+const agentListings: Omit<Agent, 'avatarUrl'>[] = [
   {
     title: 'Buyer Persona Builder',
     description:
@@ -55,7 +51,6 @@ const agents: Agent[] = [
     initials: 'SP',
     category: 'Marketing',
     pricing: 'Premium',
-    icon: 'users',
     score: 94,
   },
   {
@@ -68,7 +63,6 @@ const agents: Agent[] = [
     initials: 'HD',
     category: 'CRM',
     pricing: 'Premium',
-    icon: 'bot',
     score: 91,
   },
   {
@@ -81,7 +75,6 @@ const agents: Agent[] = [
     initials: 'AM',
     category: 'Productivity',
     pricing: 'Paid',
-    icon: 'globe',
     score: 89,
   },
   {
@@ -94,7 +87,6 @@ const agents: Agent[] = [
     initials: 'CF',
     category: 'Sales',
     pricing: 'Free',
-    icon: 'controls',
     score: 86,
   },
   {
@@ -107,7 +99,6 @@ const agents: Agent[] = [
     initials: 'DR',
     category: 'Writing & Content',
     pricing: 'Premium',
-    icon: 'video',
     score: 84,
   },
   {
@@ -120,7 +111,6 @@ const agents: Agent[] = [
     initials: 'BS',
     category: 'Marketing',
     pricing: 'Paid',
-    icon: 'linkedin',
     score: 82,
   },
   {
@@ -133,7 +123,6 @@ const agents: Agent[] = [
     initials: 'EP',
     category: 'Marketing',
     pricing: 'Premium',
-    icon: 'dna',
     score: 79,
   },
   {
@@ -146,7 +135,6 @@ const agents: Agent[] = [
     initials: 'LA',
     category: 'Other',
     pricing: 'Free',
-    icon: 'sparkles',
     score: 77,
   },
   {
@@ -159,7 +147,6 @@ const agents: Agent[] = [
     initials: 'MM',
     category: 'Customer Service',
     pricing: 'Free',
-    icon: '◉',
     score: 75,
   },
   {
@@ -172,7 +159,6 @@ const agents: Agent[] = [
     initials: 'EH',
     category: 'Marketing',
     pricing: 'Paid',
-    icon: '✳',
     score: 72,
   },
   {
@@ -185,7 +171,6 @@ const agents: Agent[] = [
     initials: 'JW',
     category: 'Productivity',
     pricing: 'Free',
-    icon: '▤',
     score: 70,
   },
   {
@@ -198,10 +183,29 @@ const agents: Agent[] = [
     initials: 'RF',
     category: 'Sales',
     pricing: 'Premium',
-    icon: '✉',
     score: 68,
   },
 ]
+
+const avatarStyle = new Style(bottts)
+const avatarBackgrounds = [
+  '#dbeafe',
+  '#dcfce7',
+  '#fef3c7',
+  '#ede9fe',
+  '#fce7f3',
+  '#cffafe',
+]
+const agents: Agent[] = agentListings.map((agent) => ({
+  ...agent,
+  avatarUrl: new Avatar(avatarStyle, {
+    // The catalogue uses agent titles as keys, including for saved agents.
+    seed: agent.title,
+    size: 128,
+    scale: 0.9,
+    backgroundColor: avatarBackgrounds,
+  }).toDataUri(),
+}))
 
 const categories: [string, string][] = [
   ['Marketing', '1,425'],
@@ -343,28 +347,17 @@ function AgentCard({
   onSave: () => void
   onOpen: () => void
 }) {
-  const Icon =
-    agent.icon === 'users'
-      ? Users
-      : agent.icon === 'globe'
-        ? Globe2
-        : agent.icon === 'controls'
-          ? SlidersHorizontal
-          : agent.icon === 'video' || agent.icon === 'linkedin'
-            ? Activity
-            : agent.icon === 'dna'
-              ? Dna
-              : agent.icon === 'sparkles'
-                ? Sparkles
-                : Bot
   return (
     <article className="agent-card">
       <div className="card-banner">
         <span className="pricing-badge">{agent.pricing}</span>
       </div>
-      <div className="agent-emblem" aria-hidden="true">
-        <Icon size={30} strokeWidth={1.8} />
-      </div>
+      <img
+        className="agent-emblem"
+        src={agent.avatarUrl}
+        alt=""
+        decoding="async"
+      />
       <div className="card-content">
         <h2 title={agent.title}>{agent.title}</h2>
         <p className="agent-description">{agent.description}</p>
@@ -439,9 +432,7 @@ function AgentDetails({
       >
         <X size={20} />
       </button>
-      <div className="dialog-icon">
-        <Bot size={30} />
-      </div>
+      <img className="dialog-avatar" src={agent.avatarUrl} alt="" />
       <span className="dialog-kicker">
         {agent.pricing} agent · {agent.category}
       </span>

@@ -19,6 +19,8 @@
     "express": "^5.1.0"
   },
   "devDependencies": {
+    "@dicebear/core": "11.0.0",
+    "@dicebear/styles": "11.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
