@@ -25,3 +25,4 @@ jobs:
       - name: Locate Chromium
         run: echo "PUPPETEER_EXECUTABLE_PATH=$(node --input-type=module -e 'import puppeteer from "puppeteer"; console.log(await puppeteer.executablePath())')" >> "$GITHUB_ENV"
       - run: npm run probe
+      - run: npm run probe:commerce

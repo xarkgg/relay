@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 import express from 'express';
 import { createApp } from '../server/app.js';
 import { openStore } from '../server/store.js';
+import { createCommerceApp } from '../server/commerce/app.js';
+import { commerceConfig } from '../server/commerce/config.js';
 
 let puppeteer;
 try { puppeteer = (await import(process.env.RELAY_PUPPETEER_PATH || 'puppeteer')).default; }
@@ -79,8 +81,11 @@ try {
   await context.close();
 
   const staticApp = express();
+  const config=commerceConfig({});
+  staticApp.use('/api/commerce',createCommerceApp({config}));
   staticApp.use(express.static('dist'));
   const staticServer = await new Promise(resolve => { const server = staticApp.listen(0,'127.0.0.1',() => resolve(server)); });
+  config.origins.add(`http://127.0.0.1:${staticServer.address().port}`);
   try {
     const previewBase = process.env.RELAY_PREVIEW_URL || `http://127.0.0.1:${staticServer.address().port}`;
     if (process.env.RELAY_PREVIEW_URL) assert.equal(new URL(previewBase).protocol,'https:');
@@ -92,15 +97,15 @@ try {
     for (const width of [390,1280]) {
       await page.setViewport({width,height:900});
       await page.goto(previewBase,{waitUntil:'networkidle0'});
-      verify(await page.$eval('#workspace',node => node.hidden),'catalogue build does not expose local controls');
+      verify(await page.$eval('#workspace',node => node.hidden),'storefront build does not expose local controls');
       await page.click('#preview-open');
       await page.waitForSelector('#preview-dialog[open]');
-      verify(await page.$eval('#preview-results',node => node.textContent.includes('20.5 Pi')),'catalogue sample preview works without a server runtime');
+      verify(await page.$eval('#preview-results',node => node.textContent.includes('20.5 Pi')),'storefront sample preview works without a workspace runtime');
       await page.click('#preview-dialog [data-close]');
-      verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),`catalogue has no overflow at ${width}px`);
+      verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),`storefront has no overflow at ${width}px`);
       await page.screenshot({path:`probe-shots/catalogue-${width}.png`,fullPage:true});
     }
-    verify(!requests.some(url => new URL(url).pathname.startsWith('/api/')),'public preview makes no workspace API requests');
+    verify(!requests.some(url => new URL(url).pathname.startsWith('/api/') && !new URL(url).pathname.startsWith('/api/commerce/')),'public preview makes no workspace API requests');
     for (const path of ['/api/workspace','/data/relay.db','/server/store.js','/.env']) {
       const response = await fetch(previewBase + path);
       verify(response.status === 404,`public preview refuses ${path}`);
@@ -113,7 +118,7 @@ try {
     await context.close();
   } finally { await new Promise(resolve => staticServer.close(resolve)); }
   verify(errors.length === 0,`browser errors: ${errors.join(' | ') || 'none'}`);
-  verify((await readFile('dist/index.html','utf8')).includes('data-mode="catalogue"'),'Vercel output is explicitly catalogue-only');
+  verify((await readFile('dist/index.html','utf8')).includes('data-mode="storefront"'),'Vercel output explicitly excludes the workspace');
   console.log(`PASS: ${checks} real-browser checks.`);
 } finally {
   await browser.close();
