@@ -47,16 +47,18 @@ test('frontend uses Vite, React, TypeScript, and Tailwind without a global reset
   const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /Analytics|@vercel\/analytics/);
   const marketplace = await readFile(new URL('../frontend/src/components/marketplace.tsx', import.meta.url), 'utf8');
-  assert.match(marketplace, /\/placeholder-user\.jpg/);
+  const profileMenu = await readFile(new URL('../frontend/src/components/profile-menu.tsx', import.meta.url), 'utf8');
+  assert.match(profileMenu, /\/placeholder-user\.jpg/);
+  assert.doesNotMatch(profileMenu, /https?:\/\//);
   assert.doesNotMatch(marketplace, /https?:\/\//);
 });
 
-test('migration preserves the original interface, behavior code, styles, assets and runtime versions', async () => {
+test('frontend source, assets and runtime versions match their recorded baseline', async () => {
   const reference = JSON.parse(await readFile(new URL('./fixtures/frontend-ui.json', import.meta.url), 'utf8'));
   const files = { marketplace:'src/components/marketplace.tsx', styles:'src/styles.css', privacy:'src/pages/privacy.tsx', notFound:'src/pages/not-found.tsx' };
   for (const [name, path] of Object.entries(files)) {
     const content = await readFile(new URL(`../frontend/${path}`, import.meta.url));
-    assert.equal(createHash('sha256').update(content).digest('hex'), reference.fingerprints[name], `${name} changed during the framework migration`);
+    assert.equal(createHash('sha256').update(content).digest('hex'), reference.fingerprints[name], `${name} changed from the recorded frontend baseline`);
   }
   for (const [name, digest] of Object.entries(reference.assets)) {
     const content = await readFile(new URL(`../frontend/public/${name}`, import.meta.url));

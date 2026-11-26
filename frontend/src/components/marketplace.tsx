@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
-  Bell,
   Bot,
+  BriefcaseBusiness,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
   Command,
+  Compass,
   Dna,
   Flame,
   Globe2,
@@ -14,7 +15,9 @@ import {
   Heart,
   List,
   Menu,
+  MessageCircleQuestionMark,
   Moon,
+  ReceiptText,
   Search,
   Send,
   SlidersHorizontal,
@@ -24,6 +27,9 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { toggleTheme, useTheme } from '../theme'
+import Notifications from './notifications'
+import ProfileMenu from './profile-menu'
 
 type Agent = {
   title: string
@@ -218,12 +224,11 @@ const sections = [
   'Publish Date',
 ]
 const nav = [
-  'Agent Network',
-  'Builder Network',
-  'Leaderboard',
-  'Blog',
-  'Pricing',
-  'Agent Builder',
+  { label: 'Discover', icon: Compass },
+  { label: 'My Hires', icon: BriefcaseBusiness },
+  { label: 'Activity', icon: Activity },
+  { label: 'Transactions', icon: ReceiptText },
+  { label: 'Ask Relay', icon: MessageCircleQuestionMark },
 ]
 
 function CheckGroup({
@@ -277,34 +282,35 @@ function CheckGroup({
 }
 
 function Header() {
-  const [active, setActive] = useState('Agent Network')
-  const [dark, setDark] = useState(false)
+  const [active, setActive] = useState(nav[0].label)
+  const dark = useTheme() === 'dark'
   return (
     <header className={`topbar ${dark ? 'dark-mode' : ''}`}>
-      <a className="brand" href="#top" aria-label="AI Agents Marketplace home">
-        <span className="brand-mark">
-          <svg viewBox="0 0 48 48" aria-hidden="true">
-            <path d="M8 36 14 10l19 5 8-8M14 10l13 16 6-11M8 36l19-10 14-19M8 36l4-2 15 2 14-19-14-1M14 10l-2 24" />
-            <circle cx="8" cy="36" r="3.7" />
-            <circle cx="14" cy="10" r="3.7" />
-            <circle cx="33" cy="15" r="3.7" />
-            <circle cx="41" cy="7" r="3.7" />
-            <circle cx="27" cy="26" r="3.7" />
-          </svg>
-        </span>
-        <span className="brand-text">
-          <strong>AI Agents</strong>
-          <small>Marketplace</small>
-        </span>
+      <a className="brand" href="#top" aria-label="Relay home">
+        <img
+          className="brand-wordmark brand-wordmark--light"
+          src="/wordmark-white.png"
+          width={1600}
+          height={500}
+          alt=""
+        />
+        <img
+          className="brand-wordmark brand-wordmark--dark"
+          src="/wordmark-black.png"
+          width={1600}
+          height={500}
+          alt=""
+        />
       </a>
       <nav className="main-nav" aria-label="Main navigation">
-        {nav.map((item) => (
+        {nav.map(({ label, icon: Icon }) => (
           <button
-            key={item}
-            className={active === item ? 'nav-item active' : 'nav-item'}
-            onClick={() => setActive(item)}
+            key={label}
+            className={active === label ? 'nav-item active' : 'nav-item'}
+            onClick={() => setActive(label)}
           >
-            {item}
+            <Icon size={16} aria-hidden="true" />
+            <span className="nav-label">{label}</span>
           </button>
         ))}
       </nav>
@@ -312,19 +318,15 @@ function Header() {
         <button
           className="icon-button theme-button"
           aria-label="Toggle color theme"
-          onClick={() => setDark(!dark)}
+          aria-pressed={dark}
+          onClick={toggleTheme}
         >
-          {dark ? <Moon size={20} /> : <Sun size={20} />}
+          <Sun className="theme-icon--light" size={20} aria-hidden="true" />
+          <Moon className="theme-icon--dark" size={20} aria-hidden="true" />
         </button>
-        <button className="icon-button notification" aria-label="Notifications">
-          <Bell size={20} />
-          <span>9</span>
-        </button>
+        <Notifications />
         <span className="header-divider" />
-        <button className="profile" aria-label="Open profile menu">
-          <img src="/placeholder-user.jpg" alt="Profile" />
-          <ChevronDown size={16} />
-        </button>
+        <ProfileMenu />
       </div>
     </header>
   )

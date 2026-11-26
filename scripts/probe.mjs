@@ -37,6 +37,10 @@ async function checkMarketplace(url, label) {
   try {
     await page.setViewport({width:1280,height:1000});
     await page.goto(url,{waitUntil:'networkidle0'});
+    verify(await page.$$eval('link[rel="icon"]', icons => icons.length === 1 &&
+      icons[0].getAttribute('href') === '/favicon.png' && icons[0].type === 'image/png'), `${label}: browser tab uses the supplied PNG favicon`);
+    const favicon = await fetch(url + '/favicon.png');
+    verify(favicon.ok && favicon.headers.get('content-type')?.startsWith('image/png'), `${label}: favicon is served as PNG`);
     verify((await page.$$('.agent-card')).length === 12, `${label}: sample marketplace renders`);
     verify(await page.$eval('.results-count strong', node => node.textContent === '12'), `${label}: count reflects the displayed listings`);
     verify(await page.$eval('.preview-footer', node => node.textContent.includes('Sample listings')), `${label}: preview status is explicit`);
@@ -84,6 +88,11 @@ async function checkMarketplace(url, label) {
 
     for (const width of [320,390,900,1280,1600]) {
       await page.setViewport({width,height:width < 600 ? 844 : 1000});
+      await page.evaluate(() => scrollTo(0, 0));
+      verify(await page.$eval('.topbar', node => {
+        const { top, left, right } = node.getBoundingClientRect();
+        return top === 0 && left === 0 && right === document.documentElement.clientWidth;
+      }), `${label}: header reaches the top and both sides at ${width}px`);
       verify(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}: no horizontal overflow at ${width}px`);
       await page.screenshot({path:`probe-shots/${label}-${width}.png`,fullPage:true});
       await page.click('.go-button');
@@ -102,8 +111,9 @@ async function checkMarketplace(url, label) {
     await page.click('[aria-label="Close filters"]');
     verify(await page.$eval('.filter-panel', node => !node.classList.contains('filters-open')), `${label}: mobile filters open and close`);
 
-    await page.goto(url + '/privacy.html', {waitUntil:'networkidle0'});
-    verify(await page.$eval('main', node => node.textContent.includes('not encrypted')), `${label}: previous privacy URL still works`);
+    await page.click('.preview-footer a');
+    await page.waitForSelector('.privacy-page');
+    verify(await page.$eval('main', node => node.textContent.includes('not encrypted')), `${label}: footer privacy link opens the privacy page`);
     verify(!requests.some(value => new URL(value).pathname.startsWith('/api/')), `${label}: preview makes no backend API requests`);
     // Embedded data: SVGs are assets, not third-party network requests.
     const externalRequests = requests.filter(value => {

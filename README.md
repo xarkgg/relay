@@ -23,7 +23,7 @@ previous invoice-workspace UI has been replaced.
   to preserve existing element defaults and styling.
 - `frontend/index.html` — shared document metadata and the pre-rendered page mount.
 - `frontend/vite.config.ts` — Vite, React, Tailwind, and development page rendering.
-- `frontend/public/` — unchanged static assets and the legacy privacy redirect.
+- `frontend/public/` — static assets, including `favicon.png`.
 - `server/` — Express, local SQLite storage, grants, and workflow logic.
 - `shared/` — invoice validation and frontend security-policy helpers.
 - `scripts/` and `tests/` — builds and verification.
@@ -139,10 +139,11 @@ The browser probe tests the exported marketplace on both the local backend host
 and a static host, including mobile layouts, filtering, sorting, saved views,
 details, privacy links, CSP, and the absence of backend/third-party requests.
 
-The framework migration also freezes the original UI source, stylesheet, assets,
-and React/icon-library versions in `tests/fixtures/frontend-ui.json`. If a saved
-reference is available, run `npm run parity` to compare the pre-migration export
-with the current build. The comparison covers 93 screenshots and UI-state
+`tests/fixtures/frontend-ui.json` records the current UI source, stylesheet,
+assets, and React/icon-library versions. If a saved framework-migration reference
+is available, `npm run parity` compares the pre-migration export with the current
+build; subsequent design changes are expected to differ. The comparison covers
+93 screenshots and UI-state
 snapshots, including eight viewport widths, native dialogs and focus, filters,
 sorting, saved views, theme/navigation controls, browser history, document
 metadata, public route responses, and JavaScript-disabled rendering. Pixel

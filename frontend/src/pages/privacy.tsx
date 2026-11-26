@@ -41,7 +41,7 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section>
+      <section id="contact">
         <h2>Contact</h2>
         <p>
           <a href="mailto:kuskomanass@gmail.com">kuskomanass@gmail.com</a>

@@ -16,9 +16,9 @@ function prerenderedPages(): Plugin {
           try {
             const pathname = new URL(req.url || '/', 'http://localhost')
               .pathname
-            if (pathname === '/privacy') {
+            if (['/privacy', '/profile', '/settings'].includes(pathname)) {
               res.statusCode = 308
-              res.setHeader('Location', '/privacy/')
+              res.setHeader('Location', `${pathname}/`)
               res.end()
               return
             }

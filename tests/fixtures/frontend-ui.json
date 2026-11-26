@@ -1,16 +1,13 @@
 {
   "fingerprints": {
-    "marketplace": "22ab8f67db78e353aaf576b44191531cf0c56ddf2112d61af1a107a3f0bef789",
-    "styles": "e36ec6d0b156c5c4bb95ad97bf96333dbba4f7f723ca87a60a0396c17c239c6c",
-    "privacy": "437a9fd4756e6573070694a983585b35757507a4df55563d3851159cda4d2ec7",
+    "marketplace": "20e4ca242db8bd1ebb30215f7ed821a95f45ad7a3792f7378ef14da5ab41138e",
+    "styles": "2edda430538065e2634ed284effbdc749b4f149f6af9c086ae3e3112753e436f",
+    "privacy": "dbd7d95e7b6bda6af1c9ad054b28e54915478c90c239a2e298674b354f5e59b9",
     "notFound": "6f85d3fa4755fabb2bdd373cacc8b66665845bfe66c791507897ac3a6eed2190"
   },
   "assets": {
-    "apple-icon.png": "da678942d4656a903f61000551cc51c09464d7a223faaae304e8210e1ca19257",
-    "icon-dark-32x32.png": "8a1570b2955c3748b6844356a7487d88c60f9f1e699e870a3452a3decd1ba03c",
-    "icon-light-32x32.png": "83145e5bb033ace23cd8e7fbb63e7c39733aaf58f8a7280d7800995cced6f7c2",
-    "placeholder-user.jpg": "22be067d748175598a5e00123902f5c8332dd7f101de03dfb92ec08d85bb5e53",
-    "privacy.html": "fd5b6823c1d8daac78f9aa87628496d6b42cf19a0cae475127188489274d0cf1"
+    "favicon.png": "e8e9e8e0f0d66c39a06cd5212f1e7772b1899731b70845234dddb7bbc0b2b9ea",
+    "placeholder-user.jpg": "22be067d748175598a5e00123902f5c8332dd7f101de03dfb92ec08d85bb5e53"
   },
   "versions": {
     "react": "19.3.1",

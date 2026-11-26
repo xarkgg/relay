@@ -34,6 +34,10 @@ export function deploymentConfig(scriptHashes = []) {
       { src: '/$', dest: '/index.html' },
       { src: '/privacy$', status: 308, headers: { Location: '/privacy/' } },
       { src: '/privacy/$', dest: '/privacy/index.html' },
+      { src: '/profile$', status: 308, headers: { Location: '/profile/' } },
+      { src: '/profile/$', dest: '/profile/index.html' },
+      { src: '/settings$', status: 308, headers: { Location: '/settings/' } },
+      { src: '/settings/$', dest: '/settings/index.html' },
       { handle: 'filesystem' },
       { src: '/.*', status: 404, dest: '/404.html' }
     ],

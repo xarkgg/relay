@@ -24,6 +24,8 @@ if (!template.includes('<!--app-html-->') || !template.includes('<!--app-head-->
 for (const [file, pathname] of Object.entries({
   'index.html': '/',
   'privacy/index.html': '/privacy/',
+  'profile/index.html': '/profile/',
+  'settings/index.html': '/settings/',
   '404.html': '/404.html',
   '404/index.html': '/404/',
   '_not-found/index.html': '/_not-found/'
